@@ -79,31 +79,64 @@ local plaintext = Crypto.AESDecrypt(key, sealed, "player:42")
 
 ## Key pairs and signatures
 
-`Crypto.GenerateKeyPair(algorithm, options?, callback?)` returns a private and a public key. Algorithms: `Ed25519`, `ECDSA-P256`, `RSA` (option `Bits`, 2048 to 8192, default 2048) and `X25519`. RSA key generation takes noticeable time, pass a callback.
+`Crypto.GenerateKeyPair(algorithm, options?, callback?)` returns a private and a public key.
+
+| Algorithm | Signatures | Key exchange and sealed boxes | Encryption |
+| --- | --- | --- | --- |
+| `Ed25519` | yes (recommended) | | |
+| `ECDSA-P256` | yes, SHA-256 | yes | |
+| `ECDSA-P384` | yes, SHA-384 | yes | |
+| `RSA` (option `Bits`, 2048 to 8192, default 2048) | yes, PKCS#1 v1.5 or PSS | | OAEP, encrypt only |
+| `X25519` | | yes (recommended) | |
+
+RSA key generation takes noticeable time, pass a callback.
 
 | Private key method | |
 | --- | --- |
-| `:Sign(data, format_or_options?)` | signature, options `Format`, `Padding` (`PKCS1` or `PSS`, RSA only), `Hash` (`SHA256`, RSA also `SHA384` / `SHA512`) |
+| `:Sign(data, format_or_options?)` | signature, options `Format`, `Padding` (`PKCS1` or `PSS`, RSA only), `Hash` (RSA: `SHA256`, `SHA384` or `SHA512`, ECDSA keys always use their curve's hash) |
 | `:GetPublicKey()` | public key |
-| `:DeriveSharedSecret(public_key, format?)` | X25519 shared secret, run it through `HKDF` before using it as a key |
-| `:ExportPEM()` | PKCS#8 PEM (not for X25519) |
-| `:ExportRaw(format?)` | 32 byte private key (not for RSA) |
+| `:DeriveSharedSecret(public_key, format?)` | shared secret for X25519, P-256 and P-384, run it through `HKDF` before using it as a key |
+| `:Open(sealed, associated_data?)` | plaintext of a sealed box, or `nil, message` |
+| `:ExportPEM(password?)` | PKCS#8 PEM, encrypted with the password if given (not for X25519) |
+| `:ExportRaw(format?)` | raw private key: 32 bytes, 48 for P-384 (not for RSA) |
 | `:GetAlgorithm()` | algorithm name |
 
 | Public key method | |
 | --- | --- |
 | `:Verify(data, signature, format_or_options?)` | `true` / `false`, same options as `Sign` |
+| `:Seal(data, associated_data?)` | sealed box only the private key can open (X25519, P-256, P-384) |
+| `:Encrypt(data, options?)` | RSA-OAEP ciphertext, options `Hash` (`SHA256`, also `SHA1`, `SHA384`, `SHA512`) and `Label` |
 | `:ExportPEM()` | SPKI PEM (not for X25519) |
-| `:ExportRaw(format?)` | 32 bytes for Ed25519 and X25519, compressed SEC1 point for P-256 (not for RSA) |
+| `:ExportRaw(format?)` | 32 bytes for Ed25519 and X25519, compressed SEC1 point for P-256 and P-384 (not for RSA) |
 | `:GetAlgorithm()` | algorithm name |
 
-`Crypto.ImportPrivateKey(data, algorithm?)` and `Crypto.ImportPublicKey(data, algorithm?)` read PEM (PKCS#8, SPKI, PKCS#1 for RSA, SEC1 for P-256) and detect the algorithm. Raw keys need the algorithm as second argument. Invalid input returns `nil, message`.
+`Crypto.ImportPrivateKey(data, algorithm_or_options?)` and `Crypto.ImportPublicKey(data, algorithm?)` read PEM (PKCS#8, encrypted PKCS#8, SPKI, PKCS#1 for RSA, SEC1 for P-256 and P-384) and detect the algorithm. Raw keys need the algorithm, encrypted keys the password: `Crypto.ImportPrivateKey(pem, { Password = "..." })`. Invalid input or a wrong password returns `nil, message`.
 
 ```lua
 local private, public = Crypto.GenerateKeyPair("Ed25519")
 local signature = private:Sign("payload")
 public:Verify("payload", signature) -- true
 ```
+
+### Sealed boxes
+
+A sealed box encrypts data for the owner of a public key, without a shared secret beforehand. Use it to encrypt data for another server or to store data that only an offline key can read.
+
+```lua
+local private, public = Crypto.GenerateKeyPair("X25519")
+local sealed = public:Seal("secret", "context")
+local plaintext = private:Open(sealed, "context")
+```
+
+Construction: an ephemeral key pair of the recipient's algorithm performs a key exchange with the recipient's public key. HKDF-SHA256 (salt: ephemeral public key followed by recipient public key, info: `quark sealed box v1`) derives a 32 byte key and a 24 byte nonce for XChaCha20-Poly1305. The result is `ephemeral public key .. ciphertext .. tag`, the public key being raw (X25519) or a compressed SEC1 point (P-256, P-384).
+
+### Encrypted private keys
+
+`ExportPEM(password)` writes standard `ENCRYPTED PRIVATE KEY` PEM (PBES2 with scrypt and AES-256-CBC) that OpenSSL and other tools read. Encrypting and decrypting takes a moment because of scrypt.
+
+### RSA and timing attacks
+
+The pure Rust `rsa` crate does not use constant time arithmetic and is affected by the Marvin attack ([RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html)). An attacker who can measure how long private key operations take over the network may recover the key. Quark therefore offers RSA encryption only with the public key (`Encrypt`, which is unaffected) and no RSA decryption. RSA signing uses the private key as well: prefer Ed25519 or ECDSA for anything that signs data on request, and keep RSA for interoperability.
 
 ## JSON Web Tokens
 
@@ -113,7 +146,7 @@ public:Verify("payload", signature) -- true
 | `Crypto.JWTVerify(token, key, options?)` | `Algorithms` (allow list), `Leeway` (seconds), `Issuer`, `Audience` |
 | `Crypto.JWTDecode(token)` | none, decodes without verifying |
 
-The key is a secret string for `HS256`/`HS384`/`HS512` or a key object for `RS*`, `PS*`, `ES256` and `EdDSA`. Without `Algorithm` the first algorithm matching the key is used. Verification only accepts algorithms matching the key type, which prevents algorithm confusion attacks, and checks `exp` and `nbf`. It returns `claims, header` or `nil, reason`.
+The key is a secret string for `HS256`/`HS384`/`HS512` or a key object for `RS*`, `PS*`, `ES256`, `ES384` and `EdDSA`. Without `Algorithm` the first algorithm matching the key is used. Verification only accepts algorithms matching the key type, which prevents algorithm confusion attacks, and checks `exp` and `nbf`. It returns `claims, header` or `nil, reason`.
 
 ```lua
 local token = Crypto.JWTSign({ sub = player_id }, secret, { ExpiresIn = 3600 })

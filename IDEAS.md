@@ -30,14 +30,16 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] HKDF and PBKDF2
 - [x] Password hashing: Argon2 (id, i, d), bcrypt, scrypt, `PasswordVerify` detecting the hash format
 - [x] AES-GCM (128 and 256 bit) and XChaCha20-Poly1305 with random nonces and associated data
-- [x] Key pairs: Ed25519, ECDSA P-256, RSA (PKCS#1 v1.5 and PSS), X25519, PEM and raw import and export
-- [x] X25519 key exchange
-- [x] JWT sign, verify and decode (HS256/384/512, RS256/384/512, PS256/384/512, ES256, EdDSA) with expiry, issuer, audience and algorithm allow lists
+- [x] Key pairs: Ed25519, ECDSA P-256 and P-384, RSA (PKCS#1 v1.5 and PSS), X25519, PEM and raw import and export
+- [x] Key exchange with X25519, P-256 and P-384
+- [x] Sealed boxes (`Seal` / `Open`) for X25519, P-256 and P-384
+- [x] RSA-OAEP encryption with the public key
+- [x] Encrypted PKCS#8 private keys (PBES2 with scrypt and AES-256-CBC)
+- [x] JWT sign, verify and decode (HS256/384/512, RS256/384/512, PS256/384/512, ES256, ES384, EdDSA) with expiry, issuer, audience and algorithm allow lists
 - [x] TOTP and HOTP, secret generation and `otpauth://` URIs for authenticator apps
 - [x] Secure random bytes, integers, strings and tokens, constant time comparison
 - [x] Hex, Base64 (standard and URL safe) and Base32
-- [ ] RSA encryption (OAEP), postponed because RSA decryption in the `rsa` crate is affected by the Marvin timing attack (RUSTSEC-2023-0071)
-- [ ] ECDH on P-256, ECDSA P-384, encrypted PKCS#8 keys
+- [ ] RSA decryption, blocked until the `rsa` crate is no longer affected by the Marvin timing attack (RUSTSEC-2023-0071)
 - [ ] Switch to a stable `rsa` release once 0.10 is published (currently `0.10.0-rc.19`)
 
 ## Random
