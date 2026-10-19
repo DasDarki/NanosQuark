@@ -17,6 +17,24 @@ where
     Ok(())
 }
 
+pub fn run<T, E, F>(lua: &Lua, callback: Option<LuaFunction>, work: F) -> LuaResult<LuaMultiValue>
+where
+    F: FnOnce() -> Result<T, E> + Send + 'static,
+    T: IntoLuaMulti + Send + 'static,
+    E: Display + Send + 'static,
+{
+    match callback {
+        Some(callback) => {
+            spawn_blocking(lua, callback, work)?;
+            Ok(LuaMultiValue::new())
+        }
+        None => match work() {
+            Ok(values) => values.into_lua_multi(lua),
+            Err(error) => (LuaNil, error.to_string()).into_lua_multi(lua),
+        },
+    }
+}
+
 pub fn spawn_future<T, E, F>(lua: &Lua, callback: LuaFunction, future: F) -> LuaResult<()>
 where
     F: Future<Output = Result<T, E>> + Send + 'static,
