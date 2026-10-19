@@ -116,7 +116,7 @@ impl LuaUserData for Hasher {
     fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("Update", |_, (this, data): (LuaAnyUserData, Binary)| {
             match this.borrow_mut::<Hasher>()?.state.as_mut() {
-                Some(state) => state.update(&data.as_bytes()),
+                Some(state) => state.update(data.as_bytes()),
                 None => return Err(LuaError::runtime("the hasher was already finalized")),
             }
             Ok(this)
@@ -165,7 +165,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
             |_, (algorithm, data, format): (HashAlgorithm, Binary, Option<Format>)| {
                 Ok(format
                     .unwrap_or(Format::Hex)
-                    .encode(&algorithm.digest(&data.as_bytes())))
+                    .encode(&algorithm.digest(data.as_bytes())))
             },
         )?,
     )?;
@@ -177,7 +177,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
             lua.create_function(move |_, (data, format): (Binary, Option<Format>)| {
                 Ok(format
                     .unwrap_or(Format::Hex)
-                    .encode(&algorithm.digest(&data.as_bytes())))
+                    .encode(&algorithm.digest(data.as_bytes())))
             })?,
         )?;
     }
@@ -195,7 +195,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
         "HMAC",
         lua.create_function(
             |_, (algorithm, key, data, format): (HashAlgorithm, Binary, Binary, Option<Format>)| {
-                let mac = hmac(algorithm, &key.as_bytes(), &data.as_bytes())?;
+                let mac = hmac(algorithm, key.as_bytes(), data.as_bytes())?;
                 Ok(format.unwrap_or(Format::Hex).encode(&mac))
             },
         )?,
@@ -212,11 +212,11 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
                 Binary,
                 Option<Format>,
             )| {
-                let expected = match format.unwrap_or(Format::Hex).decode(&expected.as_bytes()) {
+                let expected = match format.unwrap_or(Format::Hex).decode(expected.as_bytes()) {
                     Ok(expected) => expected,
                     Err(error) => return Ok(Err(error)),
                 };
-                let mac = hmac(algorithm, &key.as_bytes(), &data.as_bytes())?;
+                let mac = hmac(algorithm, key.as_bytes(), data.as_bytes())?;
                 Ok(Ok(bool::from(mac.ct_eq(&expected))))
             },
         )?,

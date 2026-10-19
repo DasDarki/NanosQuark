@@ -18,12 +18,8 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
                     .map(|value| value.as_bytes().to_vec())
                     .unwrap_or_default();
                 match key.len() {
-                    16 => {
-                        encrypt::<Aes128Gcm>(&key, &data.as_bytes(), &associated, AES_NONCE_LENGTH)
-                    }
-                    32 => {
-                        encrypt::<Aes256Gcm>(&key, &data.as_bytes(), &associated, AES_NONCE_LENGTH)
-                    }
+                    16 => encrypt::<Aes128Gcm>(key, data.as_bytes(), &associated, AES_NONCE_LENGTH),
+                    32 => encrypt::<Aes256Gcm>(key, data.as_bytes(), &associated, AES_NONCE_LENGTH),
                     _ => Err(LuaError::runtime("AES keys have to be 16 or 32 bytes long")),
                 }
             },
@@ -39,12 +35,8 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
                     .map(|value| value.as_bytes().to_vec())
                     .unwrap_or_default();
                 match key.len() {
-                    16 => {
-                        decrypt::<Aes128Gcm>(&key, &data.as_bytes(), &associated, AES_NONCE_LENGTH)
-                    }
-                    32 => {
-                        decrypt::<Aes256Gcm>(&key, &data.as_bytes(), &associated, AES_NONCE_LENGTH)
-                    }
+                    16 => decrypt::<Aes128Gcm>(key, data.as_bytes(), &associated, AES_NONCE_LENGTH),
+                    32 => decrypt::<Aes256Gcm>(key, data.as_bytes(), &associated, AES_NONCE_LENGTH),
                     _ => Err(LuaError::runtime("AES keys have to be 16 or 32 bytes long")),
                 }
             },
@@ -63,8 +55,8 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
                     return Err(LuaError::runtime("XChaCha20 keys have to be 32 bytes long"));
                 }
                 encrypt::<XChaCha20Poly1305>(
-                    &key,
-                    &data.as_bytes(),
+                    key,
+                    data.as_bytes(),
                     &associated,
                     XCHACHA_NONCE_LENGTH,
                 )
@@ -84,8 +76,8 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
                     return Err(LuaError::runtime("XChaCha20 keys have to be 32 bytes long"));
                 }
                 decrypt::<XChaCha20Poly1305>(
-                    &key,
-                    &data.as_bytes(),
+                    key,
+                    data.as_bytes(),
                     &associated,
                     XCHACHA_NONCE_LENGTH,
                 )

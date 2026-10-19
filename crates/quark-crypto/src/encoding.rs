@@ -56,11 +56,11 @@ impl FromLua for Format {
 pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "HexEncode",
-        lua.create_function(|_, data: Binary| Ok(HEXLOWER.encode(&data.as_bytes())))?,
+        lua.create_function(|_, data: Binary| Ok(HEXLOWER.encode(data.as_bytes())))?,
     )?;
     crypto.set(
         "HexDecode",
-        lua.create_function(|_, text: Binary| Ok(decode_hex(&text.as_bytes()).map(Bytes)))?,
+        lua.create_function(|_, text: Binary| Ok(decode_hex(text.as_bytes()).map(Bytes)))?,
     )?;
     crypto.set(
         "Base64Encode",
@@ -70,22 +70,22 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
             } else {
                 Format::Base64
             };
-            Ok(format.encode(&data.as_bytes()))
+            Ok(format.encode(data.as_bytes()))
         })?,
     )?;
     crypto.set(
         "Base64Decode",
         lua.create_function(|_, (text, url_safe): (Binary, Option<bool>)| {
-            Ok(decode_base64(&text.as_bytes(), url_safe.unwrap_or(false)).map(Bytes))
+            Ok(decode_base64(text.as_bytes(), url_safe.unwrap_or(false)).map(Bytes))
         })?,
     )?;
     crypto.set(
         "Base32Encode",
-        lua.create_function(|_, data: Binary| Ok(BASE32_NOPAD.encode(&data.as_bytes())))?,
+        lua.create_function(|_, data: Binary| Ok(BASE32_NOPAD.encode(data.as_bytes())))?,
     )?;
     crypto.set(
         "Base32Decode",
-        lua.create_function(|_, text: Binary| Ok(decode_base32(&text.as_bytes()).map(Bytes)))?,
+        lua.create_function(|_, text: Binary| Ok(decode_base32(text.as_bytes()).map(Bytes)))?,
     )?;
     Ok(())
 }

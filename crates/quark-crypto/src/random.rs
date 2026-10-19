@@ -60,7 +60,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "ConstantTimeEquals",
         lua.create_function(|_, (left, right): (Binary, Binary)| {
-            Ok(bool::from(left.as_bytes().ct_eq(&right.as_bytes())))
+            Ok(bool::from(left.as_bytes().ct_eq(right.as_bytes())))
         })?,
     )?;
 

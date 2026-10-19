@@ -32,10 +32,10 @@ fn hkdf(_: &Lua, (key, options): (Binary, Options)) -> LuaResult<quark_core::Byt
 
     let mut output = vec![0; length];
     match algorithm {
-        HashAlgorithm::Sha1 => expand::<sha1::Sha1>(salt.as_deref(), &key, &info, &mut output)?,
-        HashAlgorithm::Sha256 => expand::<sha2::Sha256>(salt.as_deref(), &key, &info, &mut output)?,
-        HashAlgorithm::Sha384 => expand::<sha2::Sha384>(salt.as_deref(), &key, &info, &mut output)?,
-        HashAlgorithm::Sha512 => expand::<sha2::Sha512>(salt.as_deref(), &key, &info, &mut output)?,
+        HashAlgorithm::Sha1 => expand::<sha1::Sha1>(salt.as_deref(), key, &info, &mut output)?,
+        HashAlgorithm::Sha256 => expand::<sha2::Sha256>(salt.as_deref(), key, &info, &mut output)?,
+        HashAlgorithm::Sha384 => expand::<sha2::Sha384>(salt.as_deref(), key, &info, &mut output)?,
+        HashAlgorithm::Sha512 => expand::<sha2::Sha512>(salt.as_deref(), key, &info, &mut output)?,
         _ => {
             return Err(LuaError::runtime(
                 "HKDF supports the algorithms SHA1, SHA256, SHA384 and SHA512",

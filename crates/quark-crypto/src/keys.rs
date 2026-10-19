@@ -493,7 +493,7 @@ impl LuaUserData for PrivateKey {
         methods.add_method("GetPublicKey", |_, key, ()| Ok(Object(key.public_key())));
         methods.add_method("Sign", |lua, key, (data, options): (Binary, LuaValue)| {
             let options = SignOptions::parse(options, lua)?;
-            let signature = key.sign(&data.as_bytes(), options.padding, options.hash)?;
+            let signature = key.sign(data.as_bytes(), options.padding, options.hash)?;
             Ok(options.format.encode(&signature))
         });
         methods.add_method(
@@ -509,16 +509,11 @@ impl LuaUserData for PrivateKey {
                 let associated = associated
                     .map(|value| value.as_bytes().to_vec())
                     .unwrap_or_default();
-                key.open(&sealed.as_bytes(), &associated)
+                key.open(sealed.as_bytes(), &associated)
             },
         );
         methods.add_method("ExportPEM", |_, key, password: Option<Binary>| {
-            key.export_pem(
-                password
-                    .as_ref()
-                    .map(|password| password.as_bytes())
-                    .as_deref(),
-            )
+            key.export_pem(password.as_ref().map(|password| password.as_bytes()))
         });
         methods.add_method("ExportRaw", |_, key, format: Option<Format>| {
             Ok(format.unwrap_or(Format::Raw).encode(&key.export_raw()?))
@@ -536,12 +531,12 @@ impl LuaUserData for PublicKey {
             "Verify",
             |lua, key, (data, signature, options): (Binary, Binary, LuaValue)| {
                 let options = SignOptions::parse(options, lua)?;
-                let signature = match options.format.decode(&signature.as_bytes()) {
+                let signature = match options.format.decode(signature.as_bytes()) {
                     Ok(signature) => signature,
                     Err(error) => return Ok(Err(error)),
                 };
                 Ok(Ok(key.verify(
-                    &data.as_bytes(),
+                    data.as_bytes(),
                     &signature,
                     options.padding,
                     options.hash,
@@ -549,7 +544,7 @@ impl LuaUserData for PublicKey {
             },
         );
         methods.add_method("Encrypt", |_, key, (data, options): (Binary, Options)| {
-            Ok(Bytes(key.encrypt(&data.as_bytes(), &options)?))
+            Ok(Bytes(key.encrypt(data.as_bytes(), &options)?))
         });
         methods.add_method(
             "Seal",
@@ -557,7 +552,7 @@ impl LuaUserData for PublicKey {
                 let associated = associated
                     .map(|value| value.as_bytes().to_vec())
                     .unwrap_or_default();
-                Ok(Bytes(key.seal(&data.as_bytes(), &associated)?))
+                Ok(Bytes(key.seal(data.as_bytes(), &associated)?))
             },
         );
         methods.add_method("ExportPEM", |_, key, ()| key.export_pem());
@@ -576,13 +571,13 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
         "ImportPrivateKey",
         lua.create_function(|lua, (data, options): (Binary, LuaValue)| {
             let (algorithm, password) = import_options(lua, options)?;
-            Ok(import_private_key(&data.as_bytes(), algorithm, password.as_deref()).map(Object))
+            Ok(import_private_key(data.as_bytes(), algorithm, password.as_deref()).map(Object))
         })?,
     )?;
     crypto.set(
         "ImportPublicKey",
         lua.create_function(|_, (data, algorithm): (Binary, Option<KeyAlgorithm>)| {
-            Ok(import_public_key(&data.as_bytes(), algorithm).map(Object))
+            Ok(import_public_key(data.as_bytes(), algorithm).map(Object))
         })?,
     )?;
     Ok(())

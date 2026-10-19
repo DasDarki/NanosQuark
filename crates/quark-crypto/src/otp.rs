@@ -155,7 +155,7 @@ fn hotp(secret: &[u8], counter: u64, settings: &Settings) -> LuaResult<String> {
 }
 
 fn secret_bytes(secret: &Binary) -> LuaResult<Vec<u8>> {
-    decode_base32(&secret.as_bytes()).map_err(LuaError::runtime)
+    decode_base32(secret.as_bytes()).map_err(LuaError::runtime)
 }
 
 fn code_text(lua: &Lua, code: LuaValue, digits: u32) -> LuaResult<String> {
