@@ -1,0 +1,4 @@
+[env]
+LUA_LIB = { value = "sdk/windows", relative = true }
+LUA_LIB_NAME = "lua"
+LUA_LINK = "static"

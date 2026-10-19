@@ -1,0 +1,29 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "quark"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+
+[workspace.dependencies]
+quark-core = { path = "crates/quark-core" }
+quark-crypto = { path = "crates/quark-crypto" }
+
+mlua = { version = "0.12.2", features = ["lua54", "module"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread"] }
+
+argon2 = "0.6.0"
+base64 = "0.23.1"
+getrandom = "0.4.3"
+hex = "0.4.3"
+sha2 = "0.11.1"
+
+libc = "0.2"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
