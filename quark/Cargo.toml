@@ -14,7 +14,9 @@ quark-core.workspace = true
 mlua.workspace = true
 
 quark-crypto = { workspace = true, optional = true }
+quark-testing = { workspace = true, optional = true }
 
 [features]
-default = ["crypto"]
+default = ["crypto", "testing"]
 crypto = ["dep:quark-crypto"]
+testing = ["dep:quark-testing"]

@@ -861,6 +861,7 @@ dependencies = [
  "mlua",
  "quark-core",
  "quark-crypto",
+ "quark-testing",
 ]
 
 [[package]]
@@ -903,6 +904,14 @@ dependencies = [
  "sha3",
  "subtle",
  "x25519-dalek",
+]
+
+[[package]]
+name = "quark-testing"
+version = "0.1.0"
+dependencies = [
+ "mlua",
+ "quark-core",
 ]
 
 [[package]]

@@ -15,6 +15,11 @@ const MODULES: &[Module] = &[
         name: "Crypto",
         build: quark_crypto::build,
     },
+    #[cfg(feature = "testing")]
+    Module {
+        name: "Testing",
+        build: quark_testing::build,
+    },
 ];
 
 #[mlua::lua_module]

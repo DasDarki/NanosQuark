@@ -11,6 +11,7 @@ license = "MIT"
 [workspace.dependencies]
 quark-core = { path = "crates/quark-core" }
 quark-crypto = { path = "crates/quark-crypto" }
+quark-testing = { path = "crates/quark-testing" }
 
 mlua = { version = "0.12.2", features = ["lua54", "module"] }
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "time"] }
