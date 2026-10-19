@@ -167,7 +167,7 @@ test("random values", function()
 end)
 
 test("ed25519 and ecdsa key pairs", function()
-    for _, algorithm in ipairs({ "Ed25519", "ECDSA-P256" }) do
+    for _, algorithm in ipairs({ "Ed25519", "ECDSA-P256", "ECDSA-P384" }) do
         local private, public = Crypto.GenerateKeyPair(algorithm)
         equal(private:GetAlgorithm(), algorithm)
         equal(tostring(public), "PublicKey(" .. algorithm .. ")")
@@ -189,6 +189,65 @@ test("ed25519 and ecdsa key pairs", function()
     local key, error = Crypto.ImportPrivateKey("-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----")
     equal(key, nil)
     assert(error:find("unsupported"))
+end)
+
+test("ecdsa hash restrictions", function()
+    local p384 = Crypto.GenerateKeyPair("ECDSA-P384")
+    raises(function() p384:Sign("payload", { Hash = "SHA256" }) end, "always use SHA384")
+    equal(p384:GetPublicKey():Verify("payload", p384:Sign("payload", { Hash = "SHA384" })), true)
+end)
+
+test("elliptic curve key exchange", function()
+    for _, algorithm in ipairs({ "ECDSA-P256", "ECDSA-P384" }) do
+        local alice = Crypto.GenerateKeyPair(algorithm)
+        local bob = Crypto.GenerateKeyPair(algorithm)
+        local shared = alice:DeriveSharedSecret(bob:GetPublicKey(), "hex")
+        equal(shared, bob:DeriveSharedSecret(alice:GetPublicKey(), "hex"))
+    end
+    local p256 = Crypto.GenerateKeyPair("ECDSA-P256")
+    local _, p384_public = Crypto.GenerateKeyPair("ECDSA-P384")
+    raises(function() p256:DeriveSharedSecret(p384_public) end, "same algorithm")
+end)
+
+test("sealed boxes", function()
+    for _, algorithm in ipairs({ "X25519", "ECDSA-P256", "ECDSA-P384" }) do
+        local private, public = Crypto.GenerateKeyPair(algorithm)
+        local sealed = public:Seal("secret message", "context")
+        equal(private:Open(sealed, "context"), "secret message")
+        assert(public:Seal("secret message") ~= public:Seal("secret message"), "sealed boxes must differ")
+
+        equal(private:Open(sealed, "other context"), nil)
+        local other = Crypto.GenerateKeyPair(algorithm)
+        local opened, error = other:Open(sealed, "context")
+        equal(opened, nil)
+        assert(error:find("could not be opened"))
+
+        local tampered = sealed:sub(1, -2) .. string.char((sealed:byte(-1) + 1) % 256)
+        equal(private:Open(tampered, "context"), nil)
+        equal(private:Open("short"), nil)
+    end
+    local _, ed25519 = Crypto.GenerateKeyPair("Ed25519")
+    raises(function() ed25519:Seal("data") end, "sealed boxes need")
+    raises(function() ed25519:Encrypt("data") end, "needs an RSA public key")
+end)
+
+test("encrypted private keys", function()
+    for _, algorithm in ipairs({ "Ed25519", "ECDSA-P256", "ECDSA-P384" }) do
+        local private, public = Crypto.GenerateKeyPair(algorithm)
+        local pem = private:ExportPEM("correct horse")
+        assert(pem:find("BEGIN ENCRYPTED PRIVATE KEY", 1, true))
+
+        local imported = Crypto.ImportPrivateKey(pem, { Password = "correct horse" })
+        equal(imported:GetAlgorithm(), algorithm)
+        equal(public:Verify("payload", imported:Sign("payload")), true)
+
+        local missing, missing_error = Crypto.ImportPrivateKey(pem)
+        equal(missing, nil)
+        assert(missing_error:find("pass a Password option"))
+        local wrong, wrong_error = Crypto.ImportPrivateKey(pem, { Password = "wrong" })
+        equal(wrong, nil)
+        assert(wrong_error:find("could not be decrypted"))
+    end
 end)
 
 test("x25519 key exchange", function()
@@ -234,6 +293,11 @@ test("jwt with key pairs and algorithm confusion", function()
     local ecdsa_token = Crypto.JWTSign({ sub = "player-3" }, ecdsa_private)
     equal(Crypto.JWTVerify(ecdsa_token, ecdsa_public).sub, "player-3")
     equal(select(2, Crypto.JWTVerify(ecdsa_token, public)), "the token algorithm ES256 is not allowed")
+
+    local p384_private, p384_public = Crypto.GenerateKeyPair("ECDSA-P384")
+    local p384_token = Crypto.JWTSign({ sub = "player-4" }, p384_private)
+    equal(Crypto.JWTDecode(p384_token) and select(2, Crypto.JWTDecode(p384_token)).alg, "ES384")
+    equal(Crypto.JWTVerify(p384_token, p384_public).sub, "player-4")
 
     local forged = Crypto.JWTSign({ sub = "attacker" }, public:ExportPEM(), { Algorithm = "HS256" })
     equal(Crypto.JWTVerify(forged, public), nil)
@@ -307,7 +371,17 @@ async_test("rsa key pairs", function(done)
         local token = Crypto.JWTSign({ sub = "rsa" }, Crypto.ImportPrivateKey(private:ExportPEM()), { Algorithm = "PS256" })
         local claims = Crypto.JWTVerify(token, imported)
 
-        done(valid and claims and claims.sub == "rsa", "RSA signing or JWT verification failed")
+        local encrypted_pem = private:ExportPEM("rsa password")
+        local reimported = Crypto.ImportPrivateKey(encrypted_pem, { Password = "rsa password" })
+        local reimported_valid = reimported and public:Verify("payload", reimported:Sign("payload"))
+
+        local first = public:Encrypt("secret")
+        local second = public:Encrypt("secret", { Hash = "SHA512", Label = "context" })
+        local encrypted = #first == 256 and #second == 256 and first ~= public:Encrypt("secret")
+        local too_long = not pcall(public.Encrypt, public, string.rep("x", 300))
+
+        done(valid and claims and claims.sub == "rsa" and reimported_valid and encrypted and too_long,
+            "RSA signing, JWT, encrypted PEM or OAEP failed")
     end)
 end)
 

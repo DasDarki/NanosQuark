@@ -21,6 +21,7 @@ enum Algorithm {
     Ps384,
     Ps512,
     Es256,
+    Es384,
     EdDsa,
 }
 
@@ -35,6 +36,7 @@ const ALGORITHMS: &[(&str, Algorithm)] = &[
     ("PS384", Algorithm::Ps384),
     ("PS512", Algorithm::Ps512),
     ("ES256", Algorithm::Es256),
+    ("ES384", Algorithm::Es384),
     ("EdDSA", Algorithm::EdDsa),
 ];
 
@@ -56,7 +58,9 @@ impl Algorithm {
 
     fn hash(self) -> HashAlgorithm {
         match self {
-            Algorithm::Hs384 | Algorithm::Rs384 | Algorithm::Ps384 => HashAlgorithm::Sha384,
+            Algorithm::Hs384 | Algorithm::Rs384 | Algorithm::Ps384 | Algorithm::Es384 => {
+                HashAlgorithm::Sha384
+            }
             Algorithm::Hs512 | Algorithm::Rs512 | Algorithm::Ps512 | Algorithm::EdDsa => {
                 HashAlgorithm::Sha512
             }
@@ -74,6 +78,7 @@ impl Algorithm {
             | Algorithm::Ps384
             | Algorithm::Ps512 => Some(KeyAlgorithm::Rsa),
             Algorithm::Es256 => Some(KeyAlgorithm::EcdsaP256),
+            Algorithm::Es384 => Some(KeyAlgorithm::EcdsaP384),
             Algorithm::EdDsa => Some(KeyAlgorithm::Ed25519),
         }
     }
@@ -216,7 +221,7 @@ fn sign(lua: &Lua, (claims, key, options): (LuaValue, LuaValue, Options)) -> Lua
         SigningKey::Private(private) => private.sign(
             signing_input.as_bytes(),
             algorithm.padding(),
-            algorithm.hash(),
+            Some(algorithm.hash()),
         )?,
     };
 
@@ -337,7 +342,7 @@ fn check(
             input,
             &decoded.signature,
             algorithm.padding(),
-            algorithm.hash(),
+            Some(algorithm.hash()),
         )?,
     };
     if !valid {

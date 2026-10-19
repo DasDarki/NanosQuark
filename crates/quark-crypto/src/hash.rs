@@ -7,7 +7,7 @@ use subtle::ConstantTimeEq;
 
 use crate::encoding::Format;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum HashAlgorithm {
     Md5,
     Sha1,
