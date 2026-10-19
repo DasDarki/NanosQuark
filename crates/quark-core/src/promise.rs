@@ -3,8 +3,8 @@ use std::time::{Duration, Instant};
 
 use mlua::prelude::*;
 
-use crate::dispatcher::report_message;
-use crate::{Dispatcher, spawn_future};
+use crate::dispatcher::{enter_environment, report_message};
+use crate::{Dispatcher, package_environment, spawn_future};
 
 const SOURCE: &str = include_str!("promise.lua");
 
@@ -40,10 +40,15 @@ pub fn promise(lua: &Lua) -> LuaResult<LuaTable> {
         })
     })?;
 
+    let capture = lua.create_function(|lua, ()| Ok(package_environment(lua)))?;
+    let enter = lua.create_function(|lua, environment: Option<LuaTable>| {
+        enter_environment(lua, environment)
+    })?;
+
     let module: LuaTable = lua
         .load(SOURCE)
         .set_name("=quark/promise")
-        .call((defer, report, delay))?;
+        .call((defer, report, delay, capture, enter))?;
     lua.set_app_data(PromiseModule(module.clone()));
     Ok(module)
 }

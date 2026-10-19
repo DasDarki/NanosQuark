@@ -70,6 +70,14 @@ fn is_alive(lua: &Lua, environment: &LuaTable) -> LuaResult<bool> {
     }
 }
 
+pub(crate) fn enter_environment(
+    lua: &Lua,
+    environment: Option<LuaTable>,
+) -> LuaResult<Option<LuaTable>> {
+    let state = state(lua)?;
+    Ok(state.current.replace(environment))
+}
+
 fn set_current(lua: &Lua, environment: Option<LuaTable>) -> Option<LuaTable> {
     match lua.app_data_ref::<State>() {
         Some(state) => state.current.replace(environment),

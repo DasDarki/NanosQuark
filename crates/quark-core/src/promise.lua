@@ -1,4 +1,4 @@
-local defer, report, native_delay = ...
+local defer, report, native_delay, capture, enter = ...
 
 local coroutine_create = coroutine.create
 local coroutine_resume = coroutine.resume
@@ -19,6 +19,13 @@ local Promise = {}
 Promise.__index = Promise
 
 local async_threads = setmetatable({}, { __mode = "k" })
+
+local function resume(thread)
+    local previous = enter(async_threads[thread] or nil)
+    local ok, reason = coroutine_resume(thread)
+    enter(previous)
+    return ok, reason
+end
 
 local function is_promise(value)
     return type(value) == "table" and getmetatable(value) == Promise
@@ -246,6 +253,7 @@ end
 
 function Promise.Async(body, ...)
     local arguments = pack(...)
+    local environment = capture() or false
     return Promise.New(function(resolve, reject)
         local thread = coroutine_create(function()
             local results = pack(pcall(body, unpack(arguments, 1, arguments.n)))
@@ -256,8 +264,8 @@ function Promise.Async(body, ...)
             end
         end)
 
-        async_threads[thread] = true
-        local ok, reason = coroutine_resume(thread)
+        async_threads[thread] = environment
+        local ok, reason = resume(thread)
         if not ok then
             reject(reason)
         end
@@ -269,12 +277,12 @@ function Promise.Await(target, ...)
 
     if promise.state == PENDING then
         local thread = coroutine_running()
-        if not async_threads[thread] then
+        if async_threads[thread] == nil then
             error("Quark.Await can only be used inside Quark.Async", 2)
         end
 
         local function continue()
-            local ok, reason = coroutine_resume(thread)
+            local ok, reason = resume(thread)
             if not ok then
                 report("Quark.Async failed to resume: " .. tostring(reason))
             end
