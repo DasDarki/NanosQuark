@@ -47,7 +47,7 @@ Every buffer takes the base of the package creating it and keeps it, buffers fro
 | `:Append(type, value)` | write a number at the end, returns the buffer for chaining |
 | `:ReadString(offset, length?)` / `:WriteString(offset, data)` | raw bytes, `length` defaults to the rest of the buffer |
 | `:AppendString(data)` | append raw bytes, returns the buffer for chaining |
-| `:GetBytes(start?, finish?)` | contents as a Lua string, `finish` is exclusive |
+| `:GetBytes(start?, finish?)` | contents as a Lua string, see [Index base](#index-base) for ranges |
 | `:Slice(start?, finish?)` | copy of a range as a new buffer |
 | `:CopyFrom(source, offset?, source_start?, source_finish?)` | copy from a string or buffer into this buffer |
 | `:Fill(byte, start?, finish?)` | set a range to one byte value |
