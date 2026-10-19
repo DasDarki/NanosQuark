@@ -1,0 +1,20 @@
+[package]
+name = "quark"
+description = "A batteries included utility library for the nanos world server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+quark-core.workspace = true
+mlua.workspace = true
+
+quark-crypto = { workspace = true, optional = true }
+
+[features]
+default = ["crypto"]
+crypto = ["dep:quark-crypto"]

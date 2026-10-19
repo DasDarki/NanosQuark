@@ -1,0 +1,17 @@
+# vault configurations
+[meta]
+    # friendly name
+    title =                 "Quark"
+    # contributors
+    author =                "DasDarki"
+    # version
+    version =               "0.1.0"
+
+# c module configurations
+[c_module]
+    # Lua version the modules were compiled on
+    lua_version =           "5.4"
+    # list of modules to load (without file extension)
+    modules = [
+                            "quark",
+    ]
