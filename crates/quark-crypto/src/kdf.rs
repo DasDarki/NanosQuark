@@ -1,6 +1,6 @@
 use hkdf::SimpleHkdf;
 use mlua::prelude::*;
-use quark_core::{Options, options_and_callback};
+use quark_core::{Binary, Options, options_and_callback};
 use sha2::digest::Digest;
 use sha2::digest::block_api::BlockSizeUser;
 
@@ -17,10 +17,10 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     Ok(())
 }
 
-fn hkdf(_: &Lua, (key, options): (LuaString, Options)) -> LuaResult<quark_core::Bytes> {
+fn hkdf(_: &Lua, (key, options): (Binary, Options)) -> LuaResult<quark_core::Bytes> {
     let algorithm = options.get_or("Algorithm", HashAlgorithm::Sha256)?;
-    let salt = options.get::<LuaString>("Salt")?;
-    let info = options.get::<LuaString>("Info")?;
+    let salt = options.get::<Binary>("Salt")?;
+    let info = options.get::<Binary>("Info")?;
     let length = key_length(&options)?;
     let format = options.get_or("Format", Format::Raw)?;
 
@@ -59,7 +59,7 @@ fn expand<D: Digest + BlockSizeUser + Clone>(
 
 fn pbkdf2(
     lua: &Lua,
-    (password, salt, options, callback): (LuaString, LuaString, LuaValue, Option<LuaFunction>),
+    (password, salt, options, callback): (Binary, Binary, LuaValue, Option<LuaFunction>),
 ) -> LuaResult<LuaMultiValue> {
     let (options, callback) = options_and_callback(options, callback)?;
     let algorithm = options.get_or("Algorithm", HashAlgorithm::Sha256)?;

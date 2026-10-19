@@ -2,7 +2,7 @@ use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes128Gcm, Aes256Gcm};
 use chacha20poly1305::XChaCha20Poly1305;
 use mlua::prelude::*;
-use quark_core::Bytes;
+use quark_core::{Binary, Bytes};
 
 const AES_NONCE_LENGTH: usize = 12;
 const XCHACHA_NONCE_LENGTH: usize = 24;
@@ -12,7 +12,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "AESEncrypt",
         lua.create_function(
-            |_, (key, data, associated): (LuaString, LuaString, Option<LuaString>)| {
+            |_, (key, data, associated): (Binary, Binary, Option<Binary>)| {
                 let key = key.as_bytes();
                 let associated = associated
                     .map(|value| value.as_bytes().to_vec())
@@ -33,7 +33,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "AESDecrypt",
         lua.create_function(
-            |_, (key, data, associated): (LuaString, LuaString, Option<LuaString>)| {
+            |_, (key, data, associated): (Binary, Binary, Option<Binary>)| {
                 let key = key.as_bytes();
                 let associated = associated
                     .map(|value| value.as_bytes().to_vec())
@@ -54,7 +54,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "XChaCha20Encrypt",
         lua.create_function(
-            |_, (key, data, associated): (LuaString, LuaString, Option<LuaString>)| {
+            |_, (key, data, associated): (Binary, Binary, Option<Binary>)| {
                 let key = key.as_bytes();
                 let associated = associated
                     .map(|value| value.as_bytes().to_vec())
@@ -75,7 +75,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "XChaCha20Decrypt",
         lua.create_function(
-            |_, (key, data, associated): (LuaString, LuaString, Option<LuaString>)| {
+            |_, (key, data, associated): (Binary, Binary, Option<Binary>)| {
                 let key = key.as_bytes();
                 let associated = associated
                     .map(|value| value.as_bytes().to_vec())

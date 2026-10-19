@@ -1,6 +1,6 @@
 use hmac::{KeyInit, Mac, SimpleHmac};
 use mlua::prelude::*;
-use quark_core::Object;
+use quark_core::{Binary, Object};
 use sha2::digest::block_api::BlockSizeUser;
 use sha2::digest::{Digest, DynDigest};
 use subtle::ConstantTimeEq;
@@ -114,7 +114,7 @@ struct Hasher {
 
 impl LuaUserData for Hasher {
     fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
-        methods.add_function("Update", |_, (this, data): (LuaAnyUserData, LuaString)| {
+        methods.add_function("Update", |_, (this, data): (LuaAnyUserData, Binary)| {
             match this.borrow_mut::<Hasher>()?.state.as_mut() {
                 Some(state) => state.update(&data.as_bytes()),
                 None => return Err(LuaError::runtime("the hasher was already finalized")),
@@ -162,7 +162,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "Hash",
         lua.create_function(
-            |_, (algorithm, data, format): (HashAlgorithm, LuaString, Option<Format>)| {
+            |_, (algorithm, data, format): (HashAlgorithm, Binary, Option<Format>)| {
                 Ok(format
                     .unwrap_or(Format::Hex)
                     .encode(&algorithm.digest(&data.as_bytes())))
@@ -174,7 +174,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
         let algorithm = *algorithm;
         crypto.set(
             *name,
-            lua.create_function(move |_, (data, format): (LuaString, Option<Format>)| {
+            lua.create_function(move |_, (data, format): (Binary, Option<Format>)| {
                 Ok(format
                     .unwrap_or(Format::Hex)
                     .encode(&algorithm.digest(&data.as_bytes())))
@@ -194,13 +194,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "HMAC",
         lua.create_function(
-            |_,
-             (algorithm, key, data, format): (
-                HashAlgorithm,
-                LuaString,
-                LuaString,
-                Option<Format>,
-            )| {
+            |_, (algorithm, key, data, format): (HashAlgorithm, Binary, Binary, Option<Format>)| {
                 let mac = hmac(algorithm, &key.as_bytes(), &data.as_bytes())?;
                 Ok(format.unwrap_or(Format::Hex).encode(&mac))
             },
@@ -213,9 +207,9 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
             |_,
              (algorithm, key, data, expected, format): (
                 HashAlgorithm,
-                LuaString,
-                LuaString,
-                LuaString,
+                Binary,
+                Binary,
+                Binary,
                 Option<Format>,
             )| {
                 let expected = match format.unwrap_or(Format::Hex).decode(&expected.as_bytes()) {

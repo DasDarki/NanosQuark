@@ -2,7 +2,7 @@ use argon2::password_hash::phc::PasswordHash;
 use argon2::password_hash::{PasswordHasher, PasswordVerifier};
 use argon2::{Algorithm, Argon2, Params, Version};
 use mlua::prelude::*;
-use quark_core::options_and_callback;
+use quark_core::{Binary, options_and_callback};
 use scrypt::Scrypt;
 
 const DEFAULT_BCRYPT_COST: u32 = 12;
@@ -65,7 +65,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
 
 fn argon2_hash(
     lua: &Lua,
-    (password, options, callback): (LuaString, LuaValue, Option<LuaFunction>),
+    (password, options, callback): (Binary, LuaValue, Option<LuaFunction>),
 ) -> LuaResult<LuaMultiValue> {
     let (options, callback) = options_and_callback(options, callback)?;
     let variant = match options
@@ -101,7 +101,7 @@ fn argon2_hash(
 
 fn bcrypt_hash(
     lua: &Lua,
-    (password, options, callback): (LuaString, LuaValue, Option<LuaFunction>),
+    (password, options, callback): (Binary, LuaValue, Option<LuaFunction>),
 ) -> LuaResult<LuaMultiValue> {
     let (options, callback) = options_and_callback(options, callback)?;
     let cost = options.get_or("Cost", DEFAULT_BCRYPT_COST)?;
@@ -119,7 +119,7 @@ fn bcrypt_hash(
 
 fn scrypt_hash(
     lua: &Lua,
-    (password, options, callback): (LuaString, LuaValue, Option<LuaFunction>),
+    (password, options, callback): (Binary, LuaValue, Option<LuaFunction>),
 ) -> LuaResult<LuaMultiValue> {
     let (options, callback) = options_and_callback(options, callback)?;
     let params = scrypt::Params::new(
@@ -141,7 +141,7 @@ fn scrypt_hash(
 fn verify(
     lua: &Lua,
     expected: Option<Kind>,
-    (password, hash, callback): (LuaString, String, Option<LuaFunction>),
+    (password, hash, callback): (Binary, String, Option<LuaFunction>),
 ) -> LuaResult<LuaMultiValue> {
     let password = password.as_bytes().to_vec();
     quark_core::run(lua, callback, move || {

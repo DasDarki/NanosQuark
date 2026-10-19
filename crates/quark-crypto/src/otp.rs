@@ -1,5 +1,5 @@
 use mlua::prelude::*;
-use quark_core::Options;
+use quark_core::{Binary, Options};
 use subtle::ConstantTimeEq;
 
 use crate::encoding::decode_base32;
@@ -76,7 +76,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
 
     crypto.set(
         "TOTP",
-        lua.create_function(|_, (secret, options): (LuaString, Options)| {
+        lua.create_function(|_, (secret, options): (Binary, Options)| {
             let settings = Settings::parse(&options)?;
             let time = options.get_or("Time", now_seconds())?;
             hotp(&secret_bytes(&secret)?, time / settings.period, &settings)
@@ -86,7 +86,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "TOTPVerify",
         lua.create_function(
-            |lua, (secret, code, options): (LuaString, LuaValue, Options)| {
+            |lua, (secret, code, options): (Binary, LuaValue, Options)| {
                 let settings = Settings::parse(&options)?;
                 let time = options.get_or("Time", now_seconds())?;
                 let window = options.get_or("Window", DEFAULT_WINDOW)?;
@@ -106,7 +106,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
 
     crypto.set(
         "HOTP",
-        lua.create_function(|_, (secret, counter, options): (LuaString, u64, Options)| {
+        lua.create_function(|_, (secret, counter, options): (Binary, u64, Options)| {
             let settings = Settings::parse(&options)?;
             hotp(&secret_bytes(&secret)?, counter, &settings)
         })?,
@@ -154,7 +154,7 @@ fn hotp(secret: &[u8], counter: u64, settings: &Settings) -> LuaResult<String> {
     Ok(format!("{code:0width$}", width = settings.digits as usize))
 }
 
-fn secret_bytes(secret: &LuaString) -> LuaResult<Vec<u8>> {
+fn secret_bytes(secret: &Binary) -> LuaResult<Vec<u8>> {
     decode_base32(&secret.as_bytes()).map_err(LuaError::runtime)
 }
 

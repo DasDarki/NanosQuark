@@ -2,7 +2,7 @@ use data_encoding::{
     BASE32_NOPAD, BASE64, BASE64_NOPAD, BASE64URL_NOPAD, HEXLOWER, HEXLOWER_PERMISSIVE,
 };
 use mlua::prelude::*;
-use quark_core::Bytes;
+use quark_core::{Binary, Bytes};
 
 #[derive(Clone, Copy)]
 pub enum Format {
@@ -56,15 +56,15 @@ impl FromLua for Format {
 pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set(
         "HexEncode",
-        lua.create_function(|_, data: LuaString| Ok(HEXLOWER.encode(&data.as_bytes())))?,
+        lua.create_function(|_, data: Binary| Ok(HEXLOWER.encode(&data.as_bytes())))?,
     )?;
     crypto.set(
         "HexDecode",
-        lua.create_function(|_, text: LuaString| Ok(decode_hex(&text.as_bytes()).map(Bytes)))?,
+        lua.create_function(|_, text: Binary| Ok(decode_hex(&text.as_bytes()).map(Bytes)))?,
     )?;
     crypto.set(
         "Base64Encode",
-        lua.create_function(|_, (data, url_safe): (LuaString, Option<bool>)| {
+        lua.create_function(|_, (data, url_safe): (Binary, Option<bool>)| {
             let format = if url_safe.unwrap_or(false) {
                 Format::Base64Url
             } else {
@@ -75,17 +75,17 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     )?;
     crypto.set(
         "Base64Decode",
-        lua.create_function(|_, (text, url_safe): (LuaString, Option<bool>)| {
+        lua.create_function(|_, (text, url_safe): (Binary, Option<bool>)| {
             Ok(decode_base64(&text.as_bytes(), url_safe.unwrap_or(false)).map(Bytes))
         })?,
     )?;
     crypto.set(
         "Base32Encode",
-        lua.create_function(|_, data: LuaString| Ok(BASE32_NOPAD.encode(&data.as_bytes())))?,
+        lua.create_function(|_, data: Binary| Ok(BASE32_NOPAD.encode(&data.as_bytes())))?,
     )?;
     crypto.set(
         "Base32Decode",
-        lua.create_function(|_, text: LuaString| Ok(decode_base32(&text.as_bytes()).map(Bytes)))?,
+        lua.create_function(|_, text: Binary| Ok(decode_base32(&text.as_bytes()).map(Bytes)))?,
     )?;
     Ok(())
 }

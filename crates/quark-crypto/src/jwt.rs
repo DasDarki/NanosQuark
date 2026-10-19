@@ -1,6 +1,6 @@
 use mlua::UserDataRef;
 use mlua::prelude::*;
-use quark_core::Options;
+use quark_core::{Binary, Buffer, Options};
 use serde_json::{Map, Value};
 use subtle::ConstantTimeEq;
 
@@ -110,9 +110,12 @@ enum VerifyingKey {
 }
 
 impl SigningKey {
-    fn from_lua(value: LuaValue) -> LuaResult<Self> {
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
         match value {
-            LuaValue::String(secret) => Ok(SigningKey::Secret(secret.as_bytes().to_vec())),
+            LuaValue::String(_) => Ok(SigningKey::Secret(Binary::from_lua(value, lua)?.0)),
+            LuaValue::UserData(ref userdata) if userdata.is::<Buffer>() => {
+                Ok(SigningKey::Secret(Binary::from_lua(value, lua)?.0))
+            }
             LuaValue::UserData(userdata) if userdata.is::<PrivateKey>() => {
                 Ok(SigningKey::Private(userdata.borrow::<PrivateKey>()?))
             }
@@ -132,9 +135,12 @@ impl SigningKey {
 }
 
 impl VerifyingKey {
-    fn from_lua(value: LuaValue) -> LuaResult<Self> {
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
         match value {
-            LuaValue::String(secret) => Ok(VerifyingKey::Secret(secret.as_bytes().to_vec())),
+            LuaValue::String(_) => Ok(VerifyingKey::Secret(Binary::from_lua(value, lua)?.0)),
+            LuaValue::UserData(ref userdata) if userdata.is::<Buffer>() => {
+                Ok(VerifyingKey::Secret(Binary::from_lua(value, lua)?.0))
+            }
             LuaValue::UserData(userdata) if userdata.is::<PublicKey>() => Ok(VerifyingKey::Public(
                 userdata.borrow::<PublicKey>()?.clone(),
             )),
@@ -172,7 +178,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
 }
 
 fn sign(lua: &Lua, (claims, key, options): (LuaValue, LuaValue, Options)) -> LuaResult<String> {
-    let key = SigningKey::from_lua(key)?;
+    let key = SigningKey::from_lua(key, lua)?;
     let algorithm = match options.get::<String>("Algorithm")? {
         Some(name) => Algorithm::parse(&name)
             .ok_or_else(|| LuaError::runtime(format!("unsupported JWT algorithm '{name}'")))?,
@@ -232,7 +238,7 @@ fn verify(
     lua: &Lua,
     (token, key, options): (String, LuaValue, Options),
 ) -> LuaResult<LuaMultiValue> {
-    let key = VerifyingKey::from_lua(key)?;
+    let key = VerifyingKey::from_lua(key, lua)?;
     let allowed = match options.get::<Vec<String>>("Algorithms")? {
         Some(names) => names
             .iter()

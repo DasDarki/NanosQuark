@@ -1,5 +1,5 @@
 use mlua::prelude::*;
-use quark_core::Bytes;
+use quark_core::{Binary, Bytes};
 use subtle::ConstantTimeEq;
 
 use crate::encoding::Format;
@@ -59,7 +59,7 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
 
     crypto.set(
         "ConstantTimeEquals",
-        lua.create_function(|_, (left, right): (LuaString, LuaString)| {
+        lua.create_function(|_, (left, right): (Binary, Binary)| {
             Ok(bool::from(left.as_bytes().ct_eq(&right.as_bytes())))
         })?,
     )?;

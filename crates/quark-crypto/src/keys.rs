@@ -7,7 +7,7 @@ use pkcs8::{
     DecodePrivateKey, DecodePublicKey, EncodePrivateKey, EncodePublicKey,
     EncryptedPrivateKeyInfoRef, LineEnding, SecretDocument,
 };
-use quark_core::{Bytes, Object, Options, options_and_callback};
+use quark_core::{Binary, Bytes, Object, Options, options_and_callback};
 use rand_core::UnwrapErr;
 use rsa::pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey};
 use rsa::{Oaep, Pkcs1v15Sign, Pss, RsaPrivateKey, RsaPublicKey};
@@ -401,7 +401,7 @@ impl PublicKey {
 
         let hash = options.get_or("Hash", HashAlgorithm::Sha256)?;
         let label = options
-            .get::<LuaString>("Label")?
+            .get::<Binary>("Label")?
             .map(|label| label.as_bytes().to_vec());
         let mut rng = UnwrapErr(SysRng);
         let result = match (hash, label) {
@@ -491,14 +491,11 @@ impl LuaUserData for PrivateKey {
     fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
         methods.add_method("GetAlgorithm", |_, key, ()| Ok(key.algorithm().name()));
         methods.add_method("GetPublicKey", |_, key, ()| Ok(Object(key.public_key())));
-        methods.add_method(
-            "Sign",
-            |lua, key, (data, options): (LuaString, LuaValue)| {
-                let options = SignOptions::parse(options, lua)?;
-                let signature = key.sign(&data.as_bytes(), options.padding, options.hash)?;
-                Ok(options.format.encode(&signature))
-            },
-        );
+        methods.add_method("Sign", |lua, key, (data, options): (Binary, LuaValue)| {
+            let options = SignOptions::parse(options, lua)?;
+            let signature = key.sign(&data.as_bytes(), options.padding, options.hash)?;
+            Ok(options.format.encode(&signature))
+        });
         methods.add_method(
             "DeriveSharedSecret",
             |_, key, (public, format): (LuaAnyUserData, Option<Format>)| {
@@ -508,14 +505,14 @@ impl LuaUserData for PrivateKey {
         );
         methods.add_method(
             "Open",
-            |_, key, (sealed, associated): (LuaString, Option<LuaString>)| {
+            |_, key, (sealed, associated): (Binary, Option<Binary>)| {
                 let associated = associated
                     .map(|value| value.as_bytes().to_vec())
                     .unwrap_or_default();
                 key.open(&sealed.as_bytes(), &associated)
             },
         );
-        methods.add_method("ExportPEM", |_, key, password: Option<LuaString>| {
+        methods.add_method("ExportPEM", |_, key, password: Option<Binary>| {
             key.export_pem(
                 password
                     .as_ref()
@@ -537,7 +534,7 @@ impl LuaUserData for PublicKey {
         methods.add_method("GetAlgorithm", |_, key, ()| Ok(key.algorithm().name()));
         methods.add_method(
             "Verify",
-            |lua, key, (data, signature, options): (LuaString, LuaString, LuaValue)| {
+            |lua, key, (data, signature, options): (Binary, Binary, LuaValue)| {
                 let options = SignOptions::parse(options, lua)?;
                 let signature = match options.format.decode(&signature.as_bytes()) {
                     Ok(signature) => signature,
@@ -551,15 +548,12 @@ impl LuaUserData for PublicKey {
                 )?))
             },
         );
-        methods.add_method(
-            "Encrypt",
-            |_, key, (data, options): (LuaString, Options)| {
-                Ok(Bytes(key.encrypt(&data.as_bytes(), &options)?))
-            },
-        );
+        methods.add_method("Encrypt", |_, key, (data, options): (Binary, Options)| {
+            Ok(Bytes(key.encrypt(&data.as_bytes(), &options)?))
+        });
         methods.add_method(
             "Seal",
-            |_, key, (data, associated): (LuaString, Option<LuaString>)| {
+            |_, key, (data, associated): (Binary, Option<Binary>)| {
                 let associated = associated
                     .map(|value| value.as_bytes().to_vec())
                     .unwrap_or_default();
@@ -580,14 +574,14 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
     crypto.set("GenerateKeyPair", lua.create_function(generate_key_pair)?)?;
     crypto.set(
         "ImportPrivateKey",
-        lua.create_function(|lua, (data, options): (LuaString, LuaValue)| {
+        lua.create_function(|lua, (data, options): (Binary, LuaValue)| {
             let (algorithm, password) = import_options(lua, options)?;
             Ok(import_private_key(&data.as_bytes(), algorithm, password.as_deref()).map(Object))
         })?,
     )?;
     crypto.set(
         "ImportPublicKey",
-        lua.create_function(|_, (data, algorithm): (LuaString, Option<KeyAlgorithm>)| {
+        lua.create_function(|_, (data, algorithm): (Binary, Option<KeyAlgorithm>)| {
             Ok(import_public_key(&data.as_bytes(), algorithm).map(Object))
         })?,
     )?;
@@ -623,7 +617,7 @@ fn import_options(
         LuaValue::Table(_) => {
             let options = Options::from_lua(value, lua)?;
             let password = options
-                .get::<LuaString>("Password")?
+                .get::<Binary>("Password")?
                 .map(|password| password.as_bytes().to_vec());
             Ok((options.get("Algorithm")?, password))
         }
