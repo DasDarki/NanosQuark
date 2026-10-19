@@ -14,13 +14,14 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] Async jobs belong to the package that started them, so nested async calls inside callbacks work
 - [ ] Per package resource tracking: sockets, servers, timers and workers opened by a package are closed on its `Unload`
 - [ ] `Quark.Configure({ TickBudget = 4, WorkerThreads = 4 })`, sensible defaults for game servers (do not use every core)
-- [ ] Promise objects as an alternative to callbacks: `Crypto.Argon2Hash(password):Then(fn):Catch(fn)`
-- [ ] Coroutine based await: `Quark.Async(function() local hash = Quark.Await(Crypto.Argon2Hash(password)) end)`
+- [x] Promise objects with `Then`, `Catch`, `Finally`, `All`, `AllSettled`, `Race` and `From` for callback functions
+- [x] Coroutine based await: `Quark.Async(function() local hash = Quark.Await(Crypto.Argon2Hash, password) end)`, `Quark.Delay`, `Quark.Clock`
 - [ ] Cancellation for long running tasks (`task:Cancel()`)
-- [ ] `Quark.Buffer`: binary buffer / typed array userdata (u8, i32, f32, f64) passed to native functions without converting Lua tables, the key to fast bulk computation
+- [x] `Quark.Buffer`: byte buffer with typed number access in both byte orders, accepted as binary input everywhere
+- [ ] Typed views on buffers for bulk numeric work in native functions (`Buffer:View("f32")`)
 - [ ] Lua Language Server definitions (`---@class`, `---@param`) generated from the Rust modules, for autocompletion in VS Code
 - [ ] CI: build Linux and Windows, assemble the package, attach a zip to releases
-- [ ] Test harness: standalone Lua host with `Server`/`Console`/`Package` stubs, so module tests run in CI without a nanos world server
+- [x] Test harness: standalone Lua host with `Server`/`Console`/`Package` stubs, so module tests run in CI without a nanos world server
 - [ ] Optional allow lists for outgoing network targets and listening ports, since c-modules bypass the sandbox
 
 ## Crypto
@@ -117,11 +118,12 @@ Lua code cannot run on worker threads, so heavy computation means native algorit
 - [ ] Data structures with native performance: priority queue, ring buffer, bitset
 - [ ] Prometheus metrics endpoint and structured logging
 - [ ] Localization: plural rules and message formatting (Fluent)
-- [ ] Buffers (typed arrays): create, read, write, slice, and copy operations for efficient binary data and non binary data manipulation
-- [ ] Converting of types to binary representations and back (e.g., integers, floats, strings to buffers)
+- [x] Buffers: create, read, write, slice, and copy operations for binary data
+- [x] Converting numbers and strings to binary representations and back
 
 ## Testing Framework
 
-- [ ] Unit testing framework with test discovery, assertions, and test reporting
-- [ ] Mocking and stubbing for isolating dependencies in tests
-- [ ] Code coverage analysis to measure test effectiveness
+- [x] Unit testing framework with groups, hooks, expectations, async tests, timeouts and reporting
+- [x] Spies and mocks that restore themselves after each test
+- [ ] Code coverage analysis to measure test effectiveness (needs a line hook, only feasible in the test host)
+- [ ] Run the test host in CI on every push

@@ -35,6 +35,9 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | Module | Reference |
 | --- | --- |
 | `Crypto` | [docs/crypto.md](docs/crypto.md): hashing, HMAC, key derivation, password hashing, encryption, signatures, JWT, one time passwords, secure randomness |
+| `Buffer` | [docs/buffer.md](docs/buffer.md): mutable byte arrays with typed number access, accepted wherever binary data is expected |
+| `Promise` | [docs/promise.md](docs/promise.md): promises, `Quark.Async` / `Quark.Await`, `Quark.Delay` |
+| `Testing` | [docs/testing.md](docs/testing.md): unit tests with async support, expectations, spies and mocks |
 
 ### Async functions
 
@@ -47,6 +50,14 @@ Crypto.Argon2Verify(password, stored_hash, function(valid, error)
         return
     end
     Console.Log(valid and "welcome" or "wrong password")
+end)
+```
+
+The same functions work with promises and coroutines, see [docs/promise.md](docs/promise.md):
+
+```lua
+Quark.Async(function()
+    local valid = Quark.Await(Crypto.Argon2Verify, password, stored_hash)
 end)
 ```
 
@@ -86,9 +97,12 @@ Packages/quark/
 
 ```
 crates/
-├── quark-core     module registry, lazy imports, error boundary, event pump, worker runtime
-└── quark-crypto   Crypto module
+├── quark-core     module registry, lazy imports, error boundary, event pump, worker runtime, Buffer, Promise
+├── quark-crypto   Crypto module
+└── quark-testing  Testing module
 quark/             the cdylib (luaopen_quark), selects modules through Cargo features
+packages/          the c-module package and the test suite
+tools/test-host/   runs a package outside of nanos world
 ```
 
 A module is a function `fn(&Lua) -> LuaResult<LuaTable>` registered in [quark/src/lib.rs](quark/src/lib.rs). It uses [mlua](https://docs.rs/mlua) directly. `quark-core` provides:
@@ -99,6 +113,9 @@ A module is a function `fn(&Lua) -> LuaResult<LuaTable>` registered in [quark/sr
 | `spawn_blocking`, `spawn_future` | run CPU bound work or async I/O on the worker runtime and call a Lua callback with the result on the game thread |
 | `Options`, `options_and_callback` | read optional options tables with clear errors, accept `(options?, callback?)` argument pairs |
 | `Bytes`, `Object` | return binary strings and protected userdata, also from worker threads |
+| `Binary` | accept a string or a `Buffer` as binary input |
+| `promise` | the Promise module, for modules implementing promise based APIs |
+| `package_environment` | the environment of the calling package |
 | `Dispatcher` | post arbitrary jobs to the game thread, for example events of a socket |
 | `create_userdata` | create userdata whose methods raise string errors |
 | `protect`, `protect_table` | wrap functions so errors become strings (applied to every module table automatically) |
@@ -114,6 +131,14 @@ These details were verified against server version 1.160.0 and shape the design:
 - nanos world reads error messages with `lua_tostring`, so mlua's userdata errors show up as `Error (non-string type: userdata)`. Quark wraps every exported function in a small C trampoline that converts errors to strings.
 - The binary is pinned in memory on load, so worker threads stay valid when nanos world unloads the package. Updating the binary requires a server restart.
 
+## Tests
+
+```sh
+tools/test-host/run.sh
+```
+
+runs the test suite in [packages/quark-test](packages/quark-test) on Linux without a nanos world server, see [docs/testing.md](docs/testing.md#running-tests-without-a-server). The same package runs inside the server as well.
+
 ## License
 
-MIT. The bundled `sdk/windows/lua.lib` is part of the [nanos world module SDK](https://github.com/nanos-world/module-sdk), see [sdk/LICENSE.txt](sdk/LICENSE.txt).
+MIT. The bundled files in `sdk/` (`lua.lib`, `liblua.a` and the Lua headers) are part of the [nanos world module SDK](https://github.com/nanos-world/module-sdk), see [sdk/LICENSE.txt](sdk/LICENSE.txt).
