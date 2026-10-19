@@ -1,12 +1,15 @@
 use mlua::prelude::*;
 
-use crate::{Bytes, Object};
+use crate::{Bytes, Object, package_environment};
 
 const MAX_BUFFER_SIZE: usize = 256 * 1024 * 1024;
 
 pub struct Buffer {
     pub data: Vec<u8>,
+    base: i64,
 }
+
+struct IndexBases(LuaTable);
 
 pub struct Binary(pub Vec<u8>);
 
@@ -227,6 +230,21 @@ fn out_of_range(value: &LuaValue, name: &str) -> LuaError {
 }
 
 impl Buffer {
+    pub fn new(lua: &Lua, data: Vec<u8>) -> LuaResult<Self> {
+        Buffer::check_size(data.len())?;
+        Ok(Buffer {
+            data,
+            base: package_base(lua)?,
+        })
+    }
+
+    fn derive(&self, data: Vec<u8>) -> Self {
+        Buffer {
+            data,
+            base: self.base,
+        }
+    }
+
     fn check_size(size: usize) -> LuaResult<()> {
         if size > MAX_BUFFER_SIZE {
             return Err(LuaError::runtime(format!(
@@ -236,16 +254,18 @@ impl Buffer {
         Ok(())
     }
 
-    fn range(&self, start: Option<usize>, end: Option<usize>) -> LuaResult<(usize, usize)> {
-        let start = start.unwrap_or(0);
-        let end = end.unwrap_or(self.data.len());
-        if start > end || end > self.data.len() {
+    fn offset(&self, offset: i64) -> LuaResult<usize> {
+        if offset < self.base {
             return Err(LuaError::runtime(format!(
-                "the range {start}..{end} is outside of the buffer (size {})",
-                self.data.len()
+                "offset {offset} is invalid, offsets of this buffer start at {}",
+                self.base
             )));
         }
-        Ok((start, end))
+        usize::try_from(offset - self.base).map_err(|_| LuaError::runtime("offset overflow"))
+    }
+
+    fn range(&self, start: Option<i64>, finish: Option<i64>) -> LuaResult<(usize, usize)> {
+        resolve_range(self.base, self.data.len(), start, finish, "buffer")
     }
 
     fn slice_at(&self, offset: usize, length: usize) -> LuaResult<&[u8]> {
@@ -254,7 +274,8 @@ impl Buffer {
             .and_then(|end| self.data.get(offset..end))
             .ok_or_else(|| {
                 LuaError::runtime(format!(
-                    "cannot read {length} bytes at offset {offset}, the buffer has {} bytes",
+                    "cannot read {length} bytes at offset {}, the buffer has {} bytes",
+                    offset as i64 + self.base,
                     self.data.len()
                 ))
             })
@@ -273,9 +294,76 @@ impl Buffer {
     }
 }
 
+fn resolve_range(
+    base: i64,
+    length: usize,
+    start: Option<i64>,
+    finish: Option<i64>,
+    name: &str,
+) -> LuaResult<(usize, usize)> {
+    let shown_start = start.unwrap_or(base);
+    let shown_finish = finish.unwrap_or(length as i64);
+    let invalid = || {
+        LuaError::runtime(format!(
+            "the range {shown_start} to {shown_finish} is outside of the {name} (size {length}, offsets start at {base})"
+        ))
+    };
+
+    let start = match start {
+        Some(start) if start < base => return Err(invalid()),
+        Some(start) => usize::try_from(start - base).map_err(|_| invalid())?,
+        None => 0,
+    };
+    let end = match finish {
+        Some(finish) => usize::try_from(finish).map_err(|_| invalid())?,
+        None => length,
+    };
+
+    if start > end || end > length {
+        return Err(invalid());
+    }
+    Ok((start, end))
+}
+
+fn check_base(base: i64) -> LuaResult<i64> {
+    match base {
+        0 | 1 => Ok(base),
+        _ => Err(LuaError::runtime("the index base has to be 0 or 1")),
+    }
+}
+
+fn index_bases(lua: &Lua) -> LuaResult<LuaTable> {
+    if let Some(bases) = lua.app_data_ref::<IndexBases>() {
+        return Ok(bases.0.clone());
+    }
+
+    let bases = lua.create_table()?;
+    let weak_keys = lua.create_table()?;
+    weak_keys.set("__mode", "k")?;
+    bases.set_metatable(Some(weak_keys))?;
+    lua.set_app_data(IndexBases(bases.clone()));
+    Ok(bases)
+}
+
+fn package_base(lua: &Lua) -> LuaResult<i64> {
+    let Some(environment) = package_environment(lua) else {
+        return Ok(0);
+    };
+    Ok(index_bases(lua)?
+        .raw_get::<Option<i64>>(environment)?
+        .unwrap_or(0))
+}
+
 impl LuaUserData for Buffer {
     fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
         methods.add_method("GetSize", |_, buffer, ()| Ok(buffer.data.len()));
+
+        methods.add_method("GetIndexBase", |_, buffer, ()| Ok(buffer.base));
+
+        methods.add_function("SetIndexBase", |_, (this, base): (LuaAnyUserData, i64)| {
+            this.borrow_mut::<Buffer>()?.base = check_base(base)?;
+            Ok(this)
+        });
 
         methods.add_method_mut("Resize", |_, buffer, (size, fill): (usize, Option<u8>)| {
             Buffer::check_size(size)?;
@@ -283,13 +371,14 @@ impl LuaUserData for Buffer {
             Ok(())
         });
 
-        methods.add_method("Read", |_, buffer, (kind, offset): (NumberType, usize)| {
-            Ok(kind.read(buffer.slice_at(offset, kind.size())?))
+        methods.add_method("Read", |_, buffer, (kind, offset): (NumberType, i64)| {
+            Ok(kind.read(buffer.slice_at(buffer.offset(offset)?, kind.size())?))
         });
 
         methods.add_method_mut(
             "Write",
-            |_, buffer, (kind, offset, value): (NumberType, usize, LuaValue)| {
+            |_, buffer, (kind, offset, value): (NumberType, i64, LuaValue)| {
+                let offset = buffer.offset(offset)?;
                 let bytes = kind.encode(&value)?;
                 buffer.write_at(offset, &bytes)
             },
@@ -310,11 +399,11 @@ impl LuaUserData for Buffer {
 
         methods.add_method(
             "ReadArray",
-            |lua, buffer, (kind, offset, count): (NumberType, usize, usize)| {
+            |lua, buffer, (kind, offset, count): (NumberType, i64, usize)| {
                 let length = count
                     .checked_mul(kind.size())
                     .ok_or_else(|| LuaError::runtime("count overflow"))?;
-                let bytes = buffer.slice_at(offset, length)?;
+                let bytes = buffer.slice_at(buffer.offset(offset)?, length)?;
                 lua.create_sequence_from(
                     bytes
                         .chunks_exact(kind.size())
@@ -325,7 +414,8 @@ impl LuaUserData for Buffer {
 
         methods.add_method_mut(
             "WriteArray",
-            |_, buffer, (kind, offset, values): (NumberType, usize, Vec<LuaValue>)| {
+            |_, buffer, (kind, offset, values): (NumberType, i64, Vec<LuaValue>)| {
+                let offset = buffer.offset(offset)?;
                 let mut bytes = Vec::with_capacity(values.len() * kind.size());
                 for value in &values {
                     bytes.extend(kind.encode(value)?);
@@ -336,16 +426,17 @@ impl LuaUserData for Buffer {
 
         methods.add_method(
             "ReadString",
-            |_, buffer, (offset, length): (usize, Option<usize>)| {
+            |_, buffer, (offset, length): (i64, Option<usize>)| {
+                let offset = buffer.offset(offset)?;
                 let length = length.unwrap_or_else(|| buffer.data.len().saturating_sub(offset));
                 Ok(Bytes(buffer.slice_at(offset, length)?.to_vec()))
             },
         );
 
-        methods.add_method_mut(
-            "WriteString",
-            |_, buffer, (offset, data): (usize, Binary)| buffer.write_at(offset, data.as_bytes()),
-        );
+        methods.add_method_mut("WriteString", |_, buffer, (offset, data): (i64, Binary)| {
+            let offset = buffer.offset(offset)?;
+            buffer.write_at(offset, data.as_bytes())
+        });
 
         methods.add_function(
             "AppendString",
@@ -361,11 +452,9 @@ impl LuaUserData for Buffer {
 
         methods.add_method(
             "Slice",
-            |_, buffer, (start, end): (Option<usize>, Option<usize>)| {
-                let (start, end) = buffer.range(start, end)?;
-                Ok(Object(Buffer {
-                    data: buffer.data[start..end].to_vec(),
-                }))
+            |_, buffer, (start, finish): (Option<i64>, Option<i64>)| {
+                let (start, end) = buffer.range(start, finish)?;
+                Ok(Object(buffer.derive(buffer.data[start..end].to_vec())))
             },
         );
 
@@ -373,29 +462,18 @@ impl LuaUserData for Buffer {
             "CopyFrom",
             |_,
              buffer,
-             (source, offset, start, end): (
-                Binary,
-                Option<usize>,
-                Option<usize>,
-                Option<usize>,
-            )| {
+             (source, offset, start, finish): (Binary, Option<i64>, Option<i64>, Option<i64>)| {
+                let offset = buffer.offset(offset.unwrap_or(buffer.base))?;
                 let source = source.as_bytes();
-                let start = start.unwrap_or(0);
-                let end = end.unwrap_or(source.len());
-                if start > end || end > source.len() {
-                    return Err(LuaError::runtime(format!(
-                        "the source range {start}..{end} is outside of the source (size {})",
-                        source.len()
-                    )));
-                }
-                buffer.write_at(offset.unwrap_or(0), &source[start..end])
+                let (start, end) = resolve_range(buffer.base, source.len(), start, finish, "source")?;
+                buffer.write_at(offset, &source[start..end])
             },
         );
 
         methods.add_method_mut(
             "Fill",
-            |_, buffer, (byte, start, end): (u8, Option<usize>, Option<usize>)| {
-                let (start, end) = buffer.range(start, end)?;
+            |_, buffer, (byte, start, finish): (u8, Option<i64>, Option<i64>)| {
+                let (start, end) = buffer.range(start, finish)?;
                 buffer.data[start..end].fill(byte);
                 Ok(())
             },
@@ -403,8 +481,8 @@ impl LuaUserData for Buffer {
 
         methods.add_method(
             "GetBytes",
-            |_, buffer, (start, end): (Option<usize>, Option<usize>)| {
-                let (start, end) = buffer.range(start, end)?;
+            |_, buffer, (start, finish): (Option<i64>, Option<i64>)| {
+                let (start, end) = buffer.range(start, finish)?;
                 Ok(Bytes(buffer.data[start..end].to_vec()))
             },
         );
@@ -422,9 +500,7 @@ impl LuaUserData for Buffer {
         });
 
         methods.add_method("Clone", |_, buffer, ()| {
-            Ok(Object(Buffer {
-                data: buffer.data.clone(),
-            }))
+            Ok(Object(buffer.derive(buffer.data.clone())))
         });
 
         methods.add_meta_method(LuaMetaMethod::Len, |_, buffer, ()| Ok(buffer.data.len()));
@@ -445,41 +521,37 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
 
     module.set(
         "New",
-        lua.create_function(|_, (size, fill): (Option<usize>, Option<u8>)| {
+        lua.create_function(|lua, (size, fill): (Option<usize>, Option<u8>)| {
             let size = size.unwrap_or(0);
             Buffer::check_size(size)?;
-            Ok(Object(Buffer {
-                data: vec![fill.unwrap_or(0); size],
-            }))
+            Ok(Object(Buffer::new(lua, vec![fill.unwrap_or(0); size])?))
         })?,
     )?;
 
     module.set(
         "FromString",
-        lua.create_function(|_, data: Binary| Ok(Object(Buffer { data: data.0 })))?,
+        lua.create_function(|lua, data: Binary| Ok(Object(Buffer::new(lua, data.0)?)))?,
     )?;
 
     module.set(
         "FromArray",
-        lua.create_function(|_, (kind, values): (NumberType, Vec<LuaValue>)| {
+        lua.create_function(|lua, (kind, values): (NumberType, Vec<LuaValue>)| {
             let mut data = Vec::with_capacity(values.len() * kind.size());
             for value in &values {
                 data.extend(kind.encode(value)?);
             }
-            Buffer::check_size(data.len())?;
-            Ok(Object(Buffer { data }))
+            Ok(Object(Buffer::new(lua, data)?))
         })?,
     )?;
 
     module.set(
         "Concat",
-        lua.create_function(|_, parts: Vec<Binary>| {
+        lua.create_function(|lua, parts: Vec<Binary>| {
             let data = parts
                 .iter()
                 .flat_map(|part| part.as_bytes().iter().copied())
                 .collect::<Vec<_>>();
-            Buffer::check_size(data.len())?;
-            Ok(Object(Buffer { data }))
+            Ok(Object(Buffer::new(lua, data)?))
         })?,
     )?;
 
@@ -488,6 +560,22 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
         lua.create_function(|_, value: LuaValue| {
             Ok(matches!(value, LuaValue::UserData(userdata) if userdata.is::<Buffer>()))
         })?,
+    )?;
+
+    module.set(
+        "SetIndexBase",
+        lua.create_function(|lua, base: i64| {
+            let base = check_base(base)?;
+            let environment = package_environment(lua).ok_or_else(|| {
+                LuaError::runtime("Buffer.SetIndexBase has to be called from a package script")
+            })?;
+            index_bases(lua)?.raw_set(environment, base)
+        })?,
+    )?;
+
+    module.set(
+        "GetIndexBase",
+        lua.create_function(|lua, ()| package_base(lua))?,
     )?;
 
     Ok(module)
