@@ -3,7 +3,6 @@ use std::fmt::Display;
 use mlua::prelude::*;
 use tokio::task::JoinHandle;
 
-use crate::dispatcher::is_alive;
 use crate::{Dispatcher, runtime};
 
 pub fn spawn_blocking<T, E, F>(lua: &Lua, callback: LuaFunction, work: F) -> LuaResult<()>
@@ -62,10 +61,6 @@ impl Completion {
         dispatcher.post(move |lua| {
             let function: LuaFunction = lua.registry_value(&callback)?;
             lua.remove_registry_value(callback)?;
-
-            if !is_alive(lua, &function)? {
-                return Ok(());
-            }
 
             match result {
                 Ok(values) => function.call(values),

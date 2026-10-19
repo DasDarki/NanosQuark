@@ -1,4 +1,5 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
@@ -15,6 +16,7 @@ type Job = Box<dyn FnOnce(&Lua) -> LuaResult<()> + Send>;
 #[derive(Clone)]
 pub struct Dispatcher {
     sender: Sender<Job>,
+    owner: Arc<LuaRegistryKey>,
 }
 
 struct State {
@@ -22,38 +24,56 @@ struct State {
     receiver: Receiver<Job>,
     pump: LuaFunction,
     environments: LuaTable,
+    current: RefCell<Option<LuaTable>>,
     window_start: Cell<Instant>,
 }
 
 impl Dispatcher {
     pub fn get(lua: &Lua) -> LuaResult<Self> {
         let state = state(lua)?;
-        let environment = caller_environment(lua).ok_or_else(|| {
-            LuaError::runtime("Quark async functions have to be called from a package script")
-        })?;
-        attach(lua, &state, environment)?;
+        let environment = caller_environment(lua)
+            .or_else(|| state.current.borrow().clone())
+            .ok_or_else(|| {
+                LuaError::runtime("Quark async functions have to be called from a package script")
+            })?;
+        attach(lua, &state, &environment)?;
 
         Ok(Dispatcher {
             sender: state.sender.clone(),
+            owner: Arc::new(lua.create_registry_value(environment)?),
         })
     }
 
     pub fn post(&self, job: impl FnOnce(&Lua) -> LuaResult<()> + Send + 'static) {
-        let _ = self.sender.send(Box::new(job));
+        let owner = Arc::clone(&self.owner);
+        let _ = self.sender.send(Box::new(move |lua: &Lua| {
+            let environment: LuaTable = lua.registry_value(&owner)?;
+            if !is_alive(lua, &environment)? {
+                return Ok(());
+            }
+
+            let previous = set_current(lua, Some(environment));
+            let result = job(lua);
+            set_current(lua, previous);
+            result
+        }));
     }
 }
 
-pub fn is_alive(lua: &Lua, function: &LuaFunction) -> LuaResult<bool> {
-    let Some(environment) = function.environment() else {
-        return Ok(true);
-    };
-
+fn is_alive(lua: &Lua, environment: &LuaTable) -> LuaResult<bool> {
     match lua.app_data_ref::<State>() {
         Some(state) => Ok(state
             .environments
             .raw_get::<Option<bool>>(environment)?
             .unwrap_or(true)),
-        None => Ok(true),
+        None => Ok(false),
+    }
+}
+
+fn set_current(lua: &Lua, environment: Option<LuaTable>) -> Option<LuaTable> {
+    match lua.app_data_ref::<State>() {
+        Some(state) => state.current.replace(environment),
+        None => None,
     }
 }
 
@@ -86,6 +106,7 @@ fn state(lua: &Lua) -> LuaResult<AppDataRef<'_, State>> {
         receiver,
         pump: lua.create_function(|lua, ()| pump(lua))?,
         environments,
+        current: RefCell::new(None),
         window_start: Cell::new(Instant::now()),
     });
 
@@ -103,10 +124,10 @@ fn caller_environment(lua: &Lua) -> Option<LuaTable> {
     None
 }
 
-fn attach(lua: &Lua, state: &State, environment: LuaTable) -> LuaResult<()> {
+fn attach(lua: &Lua, state: &State, environment: &LuaTable) -> LuaResult<()> {
     if state
         .environments
-        .raw_get::<Option<bool>>(&environment)?
+        .raw_get::<Option<bool>>(environment)?
         .is_some()
     {
         return Ok(());
