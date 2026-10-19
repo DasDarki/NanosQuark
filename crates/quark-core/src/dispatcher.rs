@@ -78,7 +78,11 @@ fn set_current(lua: &Lua, environment: Option<LuaTable>) -> Option<LuaTable> {
 }
 
 pub fn report_error(lua: &Lua, error: &LuaError) {
-    let message = format!("[Quark] {}", describe(error));
+    report_message(lua, &describe(error));
+}
+
+pub(crate) fn report_message(lua: &Lua, message: &str) {
+    let message = format!("[Quark] {message}");
     let logged = lua
         .globals()
         .get::<LuaTable>("Console")
@@ -114,14 +118,24 @@ fn state(lua: &Lua) -> LuaResult<AppDataRef<'_, State>> {
         .ok_or_else(|| LuaError::runtime("failed to initialize the Quark dispatcher"))
 }
 
-fn caller_environment(lua: &Lua) -> Option<LuaTable> {
+pub(crate) fn caller_environment(lua: &Lua) -> Option<LuaTable> {
+    let globals = lua.globals();
     for level in 1.. {
         let environment = lua.inspect_stack(level, |debug| debug.function().environment())?;
-        if environment.is_some() {
-            return environment;
+        if let Some(environment) = environment
+            && environment != globals
+        {
+            return Some(environment);
         }
     }
     None
+}
+
+pub fn package_environment(lua: &Lua) -> Option<LuaTable> {
+    caller_environment(lua).or_else(|| {
+        lua.app_data_ref::<State>()
+            .and_then(|state| state.current.borrow().clone())
+    })
 }
 
 fn attach(lua: &Lua, state: &State, environment: &LuaTable) -> LuaResult<()> {

@@ -1,15 +1,19 @@
+mod buffer;
 mod dispatcher;
 mod library;
 mod options;
+mod promise;
 mod protect;
 mod registry;
 mod runtime;
 mod task;
 mod values;
 
-pub use dispatcher::{Dispatcher, report_error};
+pub use buffer::{Binary, Buffer, build as buffer};
+pub use dispatcher::{Dispatcher, package_environment, report_error};
 pub use library::pin_library;
 pub use options::{Options, options_and_callback};
+pub use promise::{clock, promise};
 pub use protect::{create_userdata, describe, protect, protect_table};
 pub use registry::{Module, create_root};
 pub use runtime::runtime;

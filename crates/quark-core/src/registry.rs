@@ -1,6 +1,6 @@
 use mlua::prelude::*;
 
-use crate::protect_table;
+use crate::{clock, promise, protect_table};
 
 pub struct Module {
     pub name: &'static str,
@@ -35,6 +35,12 @@ pub fn create_root(lua: &Lua, version: &str, modules: &'static [Module]) -> LuaR
             lua.create_sequence_from(modules.iter().map(|module| module.name))
         })?,
     )?;
+
+    let promise = promise(lua)?;
+    for name in ["Async", "Await", "Delay"] {
+        root.set(name, promise.get::<LuaFunction>(name)?)?;
+    }
+    root.set("Clock", lua.create_function(|_, ()| Ok(clock()))?)?;
 
     protect_table(lua, &root)?;
 

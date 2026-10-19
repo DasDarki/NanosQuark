@@ -2,6 +2,14 @@ use mlua::prelude::*;
 use quark_core::Module;
 
 const MODULES: &[Module] = &[
+    Module {
+        name: "Buffer",
+        build: quark_core::buffer,
+    },
+    Module {
+        name: "Promise",
+        build: quark_core::promise,
+    },
     #[cfg(feature = "crypto")]
     Module {
         name: "Crypto",
