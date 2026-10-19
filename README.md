@@ -32,9 +32,13 @@ Console.Log(table.concat(Quark.Modules(), ", "))
 
 Modules can also be removed at compile time with Cargo features (`cargo build --no-default-features --features crypto`).
 
+| Module | Reference |
+| --- | --- |
+| `Crypto` | [docs/crypto.md](docs/crypto.md): hashing, HMAC, key derivation, password hashing, encryption, signatures, JWT, one time passwords, secure randomness |
+
 ### Async functions
 
-Expensive work (password hashing, networking, heavy computation) runs on native worker threads. Results come back on the game thread through a callback following the Lua convention `callback(result)` on success and `callback(nil, error)` on failure:
+Expensive functions (password hashing, key generation, heavy computation) take an optional callback as last argument. With a callback they run on native worker threads and the result comes back on the game thread, following the Lua convention `callback(result)` on success and `callback(nil, error)` on failure. Without a callback they run synchronously and return `result` or `nil, error`:
 
 ```lua
 Crypto.Argon2Verify(password, stored_hash, function(valid, error)
@@ -46,7 +50,7 @@ Crypto.Argon2Verify(password, stored_hash, function(valid, error)
 end)
 ```
 
-Callbacks of a package that was unloaded or reloaded in the meantime are dropped.
+Async work belongs to the package that started it. Callbacks of a package that was unloaded or reloaded in the meantime are dropped.
 
 ### Errors
 
@@ -91,7 +95,10 @@ A module is a function `fn(&Lua) -> LuaResult<LuaTable>` registered in [quark/sr
 
 | Item | Purpose |
 | --- | --- |
+| `run` | run work asynchronously when a callback is given and synchronously otherwise, the standard for slow functions |
 | `spawn_blocking`, `spawn_future` | run CPU bound work or async I/O on the worker runtime and call a Lua callback with the result on the game thread |
+| `Options`, `options_and_callback` | read optional options tables with clear errors, accept `(options?, callback?)` argument pairs |
+| `Bytes`, `Object` | return binary strings and protected userdata, also from worker threads |
 | `Dispatcher` | post arbitrary jobs to the game thread, for example events of a socket |
 | `create_userdata` | create userdata whose methods raise string errors |
 | `protect`, `protect_table` | wrap functions so errors become strings (applied to every module table automatically) |

@@ -10,6 +10,8 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] String errors with script location for functions and userdata methods
 - [x] Drop callbacks of unloaded packages
 - [x] Pin the binary so worker threads survive package unloads
+- [x] One style for slow work: optional callback last, asynchronous with a callback and synchronous without
+- [x] Async jobs belong to the package that started them, so nested async calls inside callbacks work
 - [ ] Per package resource tracking: sockets, servers, timers and workers opened by a package are closed on its `Unload`
 - [ ] `Quark.Configure({ TickBudget = 4, WorkerThreads = 4 })`, sensible defaults for game servers (do not use every core)
 - [ ] Promise objects as an alternative to callbacks: `Crypto.Argon2Hash(password):Then(fn):Catch(fn)`
@@ -23,19 +25,20 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 
 ## Crypto
 
-- [x] SHA-256, SHA-512, incremental `Hasher`
-- [x] Argon2id hash and verify (async)
-- [x] Secure random bytes, Base64 (standard and URL safe)
-- [ ] SHA-1, SHA-3, BLAKE3, MD5 (legacy interop only)
-- [ ] HMAC (SHA-256/512), HKDF, PBKDF2, scrypt
-- [ ] bcrypt hash and verify (async)
-- [ ] AES-256-GCM and ChaCha20-Poly1305 encrypt and decrypt, key generation
-- [ ] Signatures: Ed25519, ECDSA P-256, RSA (PKCS#1 v1.5 / PSS) sign and verify, PEM import and export
-- [ ] X25519 key exchange
-- [ ] JWT sign and verify (HS256, RS256, ES256, EdDSA)
-- [ ] TOTP / HOTP for two factor authentication (admin panels)
-- [ ] Constant time comparison
-- [ ] Secure random integers, strings and tokens (`Crypto.RandomToken(32)`)
+- [x] Hashes: MD5, SHA-1, SHA-2 (224/256/384/512), SHA-3 (256/384/512), BLAKE3, incremental `Hasher`
+- [x] HMAC with every hash except BLAKE3, constant time `HMACVerify`
+- [x] HKDF and PBKDF2
+- [x] Password hashing: Argon2 (id, i, d), bcrypt, scrypt, `PasswordVerify` detecting the hash format
+- [x] AES-GCM (128 and 256 bit) and XChaCha20-Poly1305 with random nonces and associated data
+- [x] Key pairs: Ed25519, ECDSA P-256, RSA (PKCS#1 v1.5 and PSS), X25519, PEM and raw import and export
+- [x] X25519 key exchange
+- [x] JWT sign, verify and decode (HS256/384/512, RS256/384/512, PS256/384/512, ES256, EdDSA) with expiry, issuer, audience and algorithm allow lists
+- [x] TOTP and HOTP, secret generation and `otpauth://` URIs for authenticator apps
+- [x] Secure random bytes, integers, strings and tokens, constant time comparison
+- [x] Hex, Base64 (standard and URL safe) and Base32
+- [ ] RSA encryption (OAEP), postponed because RSA decryption in the `rsa` crate is affected by the Marvin timing attack (RUSTSEC-2023-0071)
+- [ ] ECDH on P-256, ECDSA P-384, encrypted PKCS#8 keys
+- [ ] Switch to a stable `rsa` release once 0.10 is published (currently `0.10.0-rc.19`)
 
 ## Random
 
@@ -112,3 +115,11 @@ Lua code cannot run on worker threads, so heavy computation means native algorit
 - [ ] Data structures with native performance: priority queue, ring buffer, bitset
 - [ ] Prometheus metrics endpoint and structured logging
 - [ ] Localization: plural rules and message formatting (Fluent)
+- [ ] Buffers (typed arrays): create, read, write, slice, and copy operations for efficient binary data and non binary data manipulation
+- [ ] Converting of types to binary representations and back (e.g., integers, floats, strings to buffers)
+
+## Testing Framework
+
+- [ ] Unit testing framework with test discovery, assertions, and test reporting
+- [ ] Mocking and stubbing for isolating dependencies in tests
+- [ ] Code coverage analysis to measure test effectiveness
