@@ -106,13 +106,19 @@ fn protect_table_at_depth(lua: &Lua, table: &LuaTable, depth: usize) -> LuaResul
 
     for (key, value) in entries {
         match value {
-            LuaValue::Function(function) => table.raw_set(key, protect(lua, function)?)?,
+            LuaValue::Function(function) if is_native(&function) => {
+                table.raw_set(key, protect(lua, function)?)?
+            }
             LuaValue::Table(nested) => protect_table_at_depth(lua, &nested, depth + 1)?,
             _ => {}
         }
     }
 
     Ok(())
+}
+
+fn is_native(function: &LuaFunction) -> bool {
+    function.info().what == "C"
 }
 
 fn protect_metatable(lua: &Lua, userdata: &LuaAnyUserData) -> LuaResult<()> {
@@ -125,7 +131,9 @@ fn protect_metatable(lua: &Lua, userdata: &LuaAnyUserData) -> LuaResult<()> {
         match (name.as_str(), value) {
             ("__index", LuaValue::Table(methods)) => protect_table(lua, &methods)?,
             ("__index" | "__newindex", _) => {}
-            (_, LuaValue::Function(function)) => metatable.set(&name, protect(lua, function)?)?,
+            (_, LuaValue::Function(function)) if is_native(&function) => {
+                metatable.set(&name, protect(lua, function)?)?
+            }
             _ => {}
         }
     }
