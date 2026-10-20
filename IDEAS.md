@@ -67,12 +67,15 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 
 ## Formats
 
-- [ ] JSON encode / decode with pretty printing and stable key order (faster than Lua implementations, handles big documents)
-- [ ] TOML, YAML, XML, CSV, INI
-- [ ] MessagePack, CBOR for compact network payloads
-- [ ] UUID v4 and v7, parsing and validation
-- [ ] Hex, Base32, Base58, URL / percent encoding
-- [ ] Binary pack / unpack for protocols (`Format.Pack("<I4f", ...)`)
+- [x] JSON encode / decode with pretty printing, sorted keys, null and empty array handling, optionally off the game thread
+- [x] TOML, YAML
+- [x] MessagePack, CBOR for compact network payloads, binary data preserved
+- [x] CSV with and without header
+- [x] UUID v4 and v7, parsing, validation, timestamps, binary form
+- [x] URL / percent encoding, query strings, URL parsing and joining
+- [x] Hex, Base32 and Base64 (in Crypto)
+- [ ] XML, INI
+- [ ] Base58
 - [ ] JSON Schema validation for configs
 
 ## Compression
