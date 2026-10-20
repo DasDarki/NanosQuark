@@ -1,0 +1,18 @@
+[package]
+name = "quark-compression"
+description = "LZ4, Zstandard, Gzip, Deflate, Zlib, Brotli, ZIP and TAR for Quark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+quark-core.workspace = true
+mlua.workspace = true
+
+brotli.workspace = true
+flate2.workspace = true
+lz4_flex.workspace = true
+tar.workspace = true
+zip.workspace = true
+zstd.workspace = true

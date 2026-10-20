@@ -10,6 +10,21 @@ const MODULES: &[Module] = &[
         name: "Promise",
         build: quark_core::promise,
     },
+    #[cfg(feature = "compression")]
+    Module {
+        name: "Compression",
+        build: quark_compression::compression,
+    },
+    #[cfg(feature = "compression")]
+    Module {
+        name: "Zip",
+        build: quark_compression::zip,
+    },
+    #[cfg(feature = "compression")]
+    Module {
+        name: "Tar",
+        build: quark_compression::tar,
+    },
     #[cfg(feature = "crypto")]
     Module {
         name: "Crypto",

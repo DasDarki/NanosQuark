@@ -10,6 +10,7 @@ license = "MIT"
 
 [workspace.dependencies]
 quark-core = { path = "crates/quark-core" }
+quark-compression = { path = "crates/quark-compression" }
 quark-crypto = { path = "crates/quark-crypto" }
 quark-formats = { path = "crates/quark-formats" }
 quark-testing = { path = "crates/quark-testing" }
@@ -51,6 +52,18 @@ serde-saphyr = "2.0.0"
 toml = "1.1.8"
 url = "2.5.8"
 uuid = { version = "1.29.0", features = ["v4", "v7"] }
+
+brotli = "9.0.0"
+flate2 = "1.1.10"
+lz4_flex = "0.14.0"
+tar = "0.4.46"
+zip = { version = "9.1.0", default-features = false, features = ["deflate-flate2"] }
+zstd = { version = "0.14.3", default-features = false }
+
+bs58 = "0.5.1"
+jsonschema = { version = "0.60.1", default-features = false }
+quick-xml = "0.42.0"
+rust-ini = "0.21.3"
 
 libc = "0.2"
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }

@@ -13,12 +13,14 @@ crate-type = ["cdylib"]
 quark-core.workspace = true
 mlua.workspace = true
 
+quark-compression = { workspace = true, optional = true }
 quark-crypto = { workspace = true, optional = true }
 quark-formats = { workspace = true, optional = true }
 quark-testing = { workspace = true, optional = true }
 
 [features]
-default = ["crypto", "formats", "testing"]
+default = ["compression", "crypto", "formats", "testing"]
+compression = ["dep:quark-compression"]
 crypto = ["dep:quark-crypto"]
 formats = ["dep:quark-formats"]
 testing = ["dep:quark-testing"]
