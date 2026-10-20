@@ -1,5 +1,6 @@
 mod buffer;
 mod dispatcher;
+mod events;
 mod library;
 mod options;
 mod promise;
@@ -10,12 +11,13 @@ mod task;
 mod values;
 
 pub use buffer::{Binary, Buffer, build as buffer};
-pub use dispatcher::{Dispatcher, package_environment, report_error};
+pub use dispatcher::{Dispatcher, Resource, package_environment, report_error};
+pub use events::{Emitter, add_event_methods, create_object, emit_now, object_state};
 pub use library::pin_library;
 pub use options::{Options, options_and_callback};
 pub use promise::{clock, promise};
 pub use protect::{create_userdata, describe, protect, protect_table};
 pub use registry::{Module, create_root};
 pub use runtime::runtime;
-pub use task::{run, spawn_blocking, spawn_future};
+pub use task::{run, run_async, spawn_blocking, spawn_future};
 pub use values::{Bytes, Object};
