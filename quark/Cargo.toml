@@ -16,11 +16,13 @@ mlua.workspace = true
 quark-compression = { workspace = true, optional = true }
 quark-crypto = { workspace = true, optional = true }
 quark-formats = { workspace = true, optional = true }
+quark-net = { workspace = true, optional = true }
 quark-testing = { workspace = true, optional = true }
 
 [features]
-default = ["compression", "crypto", "formats", "testing"]
+default = ["compression", "crypto", "formats", "net", "testing"]
 compression = ["dep:quark-compression"]
 crypto = ["dep:quark-crypto"]
 formats = ["dep:quark-formats"]
+net = ["dep:quark-net"]
 testing = ["dep:quark-testing"]

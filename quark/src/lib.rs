@@ -80,6 +80,26 @@ const MODULES: &[Module] = &[
         name: "INI",
         build: quark_formats::ini,
     },
+    #[cfg(feature = "net")]
+    Module {
+        name: "Net",
+        build: quark_net::net,
+    },
+    #[cfg(feature = "net")]
+    Module {
+        name: "TCP",
+        build: quark_net::tcp,
+    },
+    #[cfg(feature = "net")]
+    Module {
+        name: "UDP",
+        build: quark_net::udp,
+    },
+    #[cfg(feature = "net")]
+    Module {
+        name: "WebSocket",
+        build: quark_net::websocket,
+    },
     #[cfg(feature = "testing")]
     Module {
         name: "Testing",
