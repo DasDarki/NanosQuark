@@ -80,6 +80,19 @@ pub fn register(lua: &Lua, crypto: &LuaTable) -> LuaResult<()> {
         })?,
     )?;
     crypto.set(
+        "Base58Encode",
+        lua.create_function(|_, data: Binary| Ok(bs58::encode(data.as_bytes()).into_string()))?,
+    )?;
+    crypto.set(
+        "Base58Decode",
+        lua.create_function(|_, text: Binary| {
+            Ok(bs58::decode(text.as_bytes().trim_ascii())
+                .into_vec()
+                .map(Bytes)
+                .map_err(|error| format!("invalid Base58: {error}")))
+        })?,
+    )?;
+    crypto.set(
         "Base32Encode",
         lua.create_function(|_, data: Binary| Ok(BASE32_NOPAD.encode(data.as_bytes())))?,
     )?;
