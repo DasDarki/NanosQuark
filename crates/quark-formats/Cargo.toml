@@ -11,6 +11,9 @@ quark-core.workspace = true
 mlua = { workspace = true, features = ["serde"] }
 
 ciborium.workspace = true
+jsonschema.workspace = true
+quick-xml.workspace = true
+rust-ini.workspace = true
 csv.workspace = true
 percent-encoding.workspace = true
 rmpv.workspace = true

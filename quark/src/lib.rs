@@ -70,6 +70,16 @@ const MODULES: &[Module] = &[
         name: "URL",
         build: quark_formats::url,
     },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "XML",
+        build: quark_formats::xml,
+    },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "INI",
+        build: quark_formats::ini,
+    },
     #[cfg(feature = "testing")]
     Module {
         name: "Testing",

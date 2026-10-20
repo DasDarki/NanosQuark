@@ -4,7 +4,7 @@ use serde::Serialize;
 use serde_json::Value;
 use serde_json::ser::PrettyFormatter;
 
-use crate::data::{add_values, decode, encode};
+use crate::data::{add_values, decode, encode, read};
 
 const DEFAULT_INDENT: usize = 2;
 
@@ -39,7 +39,67 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
         })?,
     )?;
 
+    module.set(
+        "Validate",
+        lua.create_function(|lua, (value, schema): (LuaValue, LuaValue)| {
+            let schema = Schema::compile(lua, schema)?;
+            schema.validate(lua, value)
+        })?,
+    )?;
+
+    module.set(
+        "Schema",
+        lua.create_function(|lua, schema: LuaValue| {
+            Ok(quark_core::Object(Schema::compile(lua, schema)?))
+        })?,
+    )?;
+
     Ok(module)
+}
+
+struct Schema(jsonschema::Validator);
+
+impl Schema {
+    fn compile(lua: &Lua, schema: LuaValue) -> LuaResult<Self> {
+        let schema: Value = match schema {
+            LuaValue::String(text) => serde_json::from_slice(&text.as_bytes())
+                .map_err(|error| LuaError::runtime(format!("invalid JSON schema: {error}")))?,
+            other => read(lua, other, &Options::default())?,
+        };
+        jsonschema::validator_for(&schema)
+            .map(Schema)
+            .map_err(|error| LuaError::runtime(format!("invalid JSON schema: {error}")))
+    }
+
+    fn validate(&self, lua: &Lua, value: LuaValue) -> LuaResult<LuaMultiValue> {
+        let instance: Value = read(lua, value, &Options::default())?;
+        let errors = lua.create_table()?;
+        for error in self.0.iter_errors(&instance) {
+            let entry = lua.create_table()?;
+            entry.set("Path", error.instance_path().to_string())?;
+            entry.set("Message", error.to_string())?;
+            errors.raw_push(entry)?;
+        }
+
+        if errors.raw_len() == 0 {
+            true.into_lua_multi(lua)
+        } else {
+            (false, errors).into_lua_multi(lua)
+        }
+    }
+}
+
+impl LuaUserData for Schema {
+    fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
+        methods.add_method("Validate", |lua, schema, value: LuaValue| {
+            schema.validate(lua, value)
+        });
+        methods.add_method("IsValid", |lua, schema, value: LuaValue| {
+            let instance: Value = read(lua, value, &Options::default())?;
+            Ok(schema.0.is_valid(&instance))
+        });
+        methods.add_meta_method(LuaMetaMethod::ToString, |_, _, ()| Ok("JSONSchema"));
+    }
 }
 
 fn to_string(value: &Value, indent: Option<usize>) -> Result<String, String> {
