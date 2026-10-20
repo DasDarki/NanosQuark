@@ -193,3 +193,118 @@ Test.Describe("URL", function()
         Expect(select(2, URL.Parse("not a url"))):ToContain("invalid URL")
     end)
 end)
+
+Test.Describe("XML", function()
+    local XML = Quark.XML
+    local DOCUMENT = [=[<?xml version="1.0"?>
+<!-- server configuration -->
+<server name="main" port="7777">
+    <motd>Welcome &amp; have fun &#x263A;</motd>
+    <admins>
+        <admin id="1">alice</admin>
+        <admin id="2"><![CDATA[<bob>]]></admin>
+    </admins>
+    <empty/>
+</server>]=]
+
+    Test.It("decodes documents into element tables", function()
+        local root = XML.Decode(DOCUMENT)
+        Expect(root.Name):ToBe("server")
+        Expect(root.Attributes):ToEqual({ name = "main", port = "7777" })
+        Expect(#root.Children):ToBe(3)
+        Expect(XML.GetText(XML.Find(root, "motd"))):ToBe("Welcome & have fun ☺")
+
+        local admins = XML.FindAll(XML.Find(root, "admins"), "admin")
+        Expect(#admins):ToBe(2)
+        Expect(admins[1].Attributes.id):ToBe("1")
+        Expect(XML.GetText(admins[2])):ToBe("<bob>")
+        Expect(XML.Find(root, "empty").Children):ToEqual({})
+        Expect(XML.Find(root, "missing")):ToBeNil()
+    end)
+
+    Test.It("encodes element tables", function()
+        local text = XML.Encode({
+            Name = "player",
+            Attributes = { id = 7, name = "A & B" },
+            Children = { { Name = "score", Children = { 10 } }, "<raw>" },
+        }, { Declaration = false })
+        Expect(text):ToBe('<player id="7" name="A &amp; B"><score>10</score>&lt;raw&gt;</player>')
+        Expect(XML.Decode(text).Attributes.name):ToBe("A & B")
+
+        local pretty = XML.Encode({ Name = "a", Children = { { Name = "b" } } }, { Pretty = true })
+        Expect(pretty):ToBe('<?xml version="1.0" encoding="UTF-8"?>\n<a>\n  <b/>\n</a>')
+        Expect(function() XML.Encode({ Name = "bad name" }) end):ToThrow("not a valid element name")
+    end)
+
+    Test.It("reports invalid documents", function()
+        Expect(select(2, XML.Decode("<a><b></a>"))):ToContain("invalid XML")
+        Expect(select(2, XML.Decode("<a/><b/>"))):ToContain("more than one root")
+        Expect(select(2, XML.Decode("<a>&unknown;</a>"))):ToContain("unknown entity")
+        Expect(select(2, XML.Decode("<a>"))):ToContain("not closed")
+    end)
+
+    Test.It("keeps whitespace on request", function()
+        Expect(XML.Decode("<a> <b/> </a>").Children):ToHaveLength(1)
+        Expect(XML.Decode("<a> <b/> </a>", { PreserveWhitespace = true }).Children):ToHaveLength(3)
+    end)
+end)
+
+Test.Describe("INI", function()
+    local INI = Quark.INI
+
+    Test.It("decodes sections and global keys", function()
+        local document = INI.Decode("name = quark\n\n[server]\nport = 7777\nhost = 0.0.0.0\n\n[database]\nfile=data.db\n")
+        Expect(document):ToEqual({
+            name = "quark",
+            server = { port = "7777", host = "0.0.0.0" },
+            database = { file = "data.db" },
+        })
+    end)
+
+    Test.It("encodes tables", function()
+        local text = INI.Encode({ name = "quark", server = { port = 7777, debug = false } })
+        Expect(text):ToBe("name=quark\n\n[server]\ndebug=false\nport=7777\n")
+        Expect(INI.Decode(text).server.port):ToBe("7777")
+        Expect(function() INI.Encode({ a = { b = { c = 1 } } }) end):ToThrow("cannot be nested")
+    end)
+end)
+
+Test.Describe("JSON Schema", function()
+    local JSON = Quark.JSON
+    local SCHEMA = {
+        type = "object",
+        required = { "name", "level" },
+        properties = {
+            name = { type = "string", minLength = 3 },
+            level = { type = "integer", minimum = 1, maximum = 100 },
+            tags = { type = "array", items = { type = "string" } },
+        },
+    }
+
+    Test.It("validates values", function()
+        Expect(JSON.Validate({ name = "alice", level = 5 }, SCHEMA)):ToBe(true)
+
+        local valid, errors = JSON.Validate({ name = "al", level = 500, tags = { "ok", 3 } }, SCHEMA)
+        Expect(valid):ToBe(false)
+        Expect(#errors):ToBe(3)
+        local paths = {}
+        for _, entry in ipairs(errors) do
+            paths[#paths + 1] = entry.Path
+            Expect(entry.Message):ToBeType("string")
+        end
+        table.sort(paths)
+        Expect(paths):ToEqual({ "/level", "/name", "/tags/1" })
+    end)
+
+    Test.It("compiles schemas once", function()
+        local schema = JSON.Schema('{"type":"array","items":{"type":"number"}}')
+        Expect(schema:IsValid({ 1, 2.5 })):ToBe(true)
+        Expect(schema:IsValid({ 1, "x" })):ToBe(false)
+        Expect(select(2, schema:Validate({ "x" }))[1].Path):ToBe("/0")
+        Expect(function() JSON.Schema({ type = "no such type" }) end):ToThrow("invalid JSON schema")
+    end)
+
+    Test.It("does not fetch remote references", function()
+        Expect(function() JSON.Schema({ ["$ref"] = "https://example.com/schema.json" }) end):ToThrow("invalid JSON schema")
+    end)
+end)
