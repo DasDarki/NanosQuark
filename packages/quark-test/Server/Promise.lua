@@ -28,6 +28,18 @@ Test.Describe("Promise", function()
         Expect(chained):ToBe("inside then")
     end)
 
+    Test.It("skips Catch handlers of fulfilled promises", function()
+        local caught = Test.Spy()
+        local value = Quark.Await(Promise.Resolve("value"):Catch(caught))
+        Expect(value):ToBe("value")
+        Expect(caught).Not:ToHaveBeenCalled()
+
+        local fulfilled = Test.Spy()
+        local reason = Quark.Await(Promise.Reject("reason"):Then(fulfilled):Catch(function(error_message) return error_message end))
+        Expect(reason):ToBe("reason")
+        Expect(fulfilled).Not:ToHaveBeenCalled()
+    end)
+
     Test.It("runs Finally for both outcomes", function()
         local calls = 0
         Quark.Await(Promise.Resolve(1):Finally(function() calls = calls + 1 end))

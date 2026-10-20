@@ -122,7 +122,10 @@ function Promise:Then(on_fulfilled, on_rejected)
     local next_promise = create()
 
     local function run()
-        local handler = self.state == FULFILLED and on_fulfilled or on_rejected
+        local handler = on_rejected
+        if self.state == FULFILLED then
+            handler = on_fulfilled
+        end
         if handler == nil then
             settle(next_promise, self.state, self.values)
             return
