@@ -12,7 +12,8 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] Pin the binary so worker threads survive package unloads
 - [x] One style for slow work: optional callback last, asynchronous with a callback and synchronous without
 - [x] Async jobs belong to the package that started them, so nested async calls inside callbacks work
-- [ ] Per package resource tracking: sockets, servers, timers and workers opened by a package are closed on its `Unload`
+- [x] Per package resource tracking: sockets and servers opened by a package are closed on its `Unload`
+- [x] Event objects (`Subscribe` / `Unsubscribe`) fed from worker threads
 - [ ] `Quark.Configure({ TickBudget = 4, WorkerThreads = 4 })`, sensible defaults for game servers (do not use every core)
 - [x] Promise objects with `Then`, `Catch`, `Finally`, `All`, `AllSettled`, `Race` and `From` for callback functions
 - [x] Coroutine based await: `Quark.Async(function() local hash = Quark.Await(Crypto.Argon2Hash, password) end)`, `Quark.Delay`, `Quark.Clock`
@@ -56,13 +57,16 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 
 ## Net
 
-- [ ] DNS: resolve hostnames, reverse lookup, SRV / TXT / MX records (async)
-- [ ] IP utilities: parse and validate IPv4 / IPv6, CIDR matching (`Net.IsInRange(ip, "10.0.0.0/8")`), private / loopback detection
-- [ ] TCP client and server with events (`Connected`, `Data`, `Closed`), optional line or length prefixed framing
-- [ ] UDP sockets, send and receive datagrams
-- [ ] WebSocket client (ws / wss) with text and binary messages, ping / pong, reconnect
-- [ ] WebSocket server, broadcast helpers, per connection data
-- [ ] TLS for TCP and WebSocket (rustls)
+- [x] DNS: resolve host names, A, AAAA, MX, TXT, SRV, CNAME, NS and PTR records, reverse lookups
+- [x] IP utilities: validation, normalization, CIDR matching, private and loopback detection
+- [x] TCP client and server with events, raw, line and length prefixed framing
+- [x] UDP sockets
+- [x] WebSocket client (ws and wss) and server with path filter, request headers, broadcast and close codes
+- [x] TLS for outgoing TCP and WebSocket connections (rustls with the Mozilla root store)
+- [ ] HTTP server with routing, middleware and async handlers
+- [ ] HTTP client with streaming and timeouts (nanos world has `HTTP.RequestAsync`)
+- [ ] TLS for servers and custom root certificates
+- [ ] WebSocket reconnect with backoff
 - [ ] Optional: Redis client and pub/sub for multi server setups, MQTT / NATS messaging
 - [ ] Optional: GeoIP lookup (MaxMind database) for player countries
 

@@ -43,6 +43,7 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | `UUID` | [docs/formats.md](docs/formats.md#uuid): versions 4 and 7, parsing, timestamps |
 | `URL` | [docs/formats.md](docs/formats.md#url): percent encoding, query strings, parsing |
 | `Compression`, `Zip`, `Tar` | [docs/compression.md](docs/compression.md): LZ4, Zstandard, Gzip, Deflate, Zlib, Brotli and archives in memory |
+| `Net`, `TCP`, `UDP`, `WebSocket` | [docs/net.md](docs/net.md): DNS, IP ranges, TCP and UDP sockets, WebSocket clients and servers, TLS for outgoing connections |
 | `Testing` | [docs/testing.md](docs/testing.md): unit tests with async support, expectations, spies and mocks |
 
 ### Async functions
@@ -106,6 +107,7 @@ crates/
 ├── quark-compression  Compression, Zip and Tar modules
 ├── quark-core     module registry, lazy imports, error boundary, event pump, worker runtime, Buffer, Promise
 ├── quark-crypto   Crypto module
+├── quark-net      Net, TCP, UDP and WebSocket modules
 ├── quark-formats  JSON, TOML, YAML, MessagePack, CBOR, CSV, UUID and URL modules
 └── quark-testing  Testing module
 quark/             the cdylib (luaopen_quark), selects modules through Cargo features
@@ -124,7 +126,9 @@ A module is a function `fn(&Lua) -> LuaResult<LuaTable>` registered in [quark/sr
 | `Binary` | accept a string or a `Buffer` as binary input |
 | `promise` | the Promise module, for modules implementing promise based APIs |
 | `package_environment` | the environment of the calling package |
-| `Dispatcher` | post arbitrary jobs to the game thread, for example events of a socket |
+| `Dispatcher` | post arbitrary jobs to the game thread, track resources that close when the package unloads |
+| `Emitter`, `create_object`, `add_event_methods` | objects with `Subscribe` / `Unsubscribe` whose events are emitted from worker threads |
+| `run_async` | like `run` for futures |
 | `create_userdata` | create userdata whose methods raise string errors |
 | `protect`, `protect_table` | wrap functions so errors become strings (applied to every module table automatically) |
 | `report_error` | log an error through `Console.Error` |
