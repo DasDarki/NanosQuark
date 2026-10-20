@@ -21,6 +21,7 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [ ] Typed views on buffers for bulk numeric work in native functions (`Buffer:View("f32")`)
 - [ ] Lua Language Server definitions (`---@class`, `---@param`) generated from the Rust modules, for autocompletion in VS Code
 - [ ] CI: build Linux and Windows, assemble the package, attach a zip to releases
+- [ ] Binary size: the module is about 12 MB, try `opt-level = "s"`, fewer default modules or splitting rarely used modules into separate packages
 - [x] Test harness: standalone Lua host with `Server`/`Console`/`Package` stubs, so module tests run in CI without a nanos world server
 - [ ] Optional allow lists for outgoing network targets and listening ports, since c-modules bypass the sandbox
 
@@ -74,15 +75,17 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] UUID v4 and v7, parsing, validation, timestamps, binary form
 - [x] URL / percent encoding, query strings, URL parsing and joining
 - [x] Hex, Base32 and Base64 (in Crypto)
-- [ ] XML, INI
-- [ ] Base58
-- [ ] JSON Schema validation for configs
+- [x] XML element trees, INI
+- [x] Base58 (in Crypto)
+- [x] JSON Schema validation without remote references
 
 ## Compression
 
-- [ ] LZ4, Zstandard, Gzip / Deflate, Brotli for strings and buffers (sync for small data, async for large)
-- [ ] ZIP read and write (in memory and on disk)
-- [ ] TAR read and write, `.tar.gz`
+- [x] LZ4, Zstandard, Gzip, Deflate, Zlib and Brotli for strings and buffers, levels, format detection, decompression limits
+- [x] ZIP create, extract and list in memory, path sanitizing
+- [x] TAR create, extract and list, `.tar.gz` and other compressed archives
+- [ ] Streaming compression for data larger than memory
+- [ ] Encrypted ZIP archives (AES)
 
 ## Math
 

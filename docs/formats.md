@@ -84,3 +84,49 @@ local rows = Quark.CSV.Decode("name,score\nalice,10\n")
 local url = "https://api.example.com/search?" .. Quark.URL.EncodeQuery({ q = "hello world", page = 2 })
 -- https://api.example.com/search?page=2&q=hello+world
 ```
+
+## XML
+
+| Function | |
+| --- | --- |
+| `XML.Decode(input, options?, callback?)` | root element, or `nil, message`. Option `PreserveWhitespace` keeps text nodes that only contain whitespace |
+| `XML.Encode(element, options?, callback?)` | XML text, options `Pretty`, `Indent` and `Declaration` (default `true`, writes `<?xml version="1.0" encoding="UTF-8"?>`) |
+| `XML.Find(element, name)` | first child element with that name, or `nil` |
+| `XML.FindAll(element, name?)` | all child elements, optionally only those with that name |
+| `XML.GetText(element)` | text content of the element and all descendants |
+
+An element is a table `{ Name, Attributes = { name = value }, Children = { ... } }`, children are elements or strings. Entities and CDATA sections are resolved, comments, processing instructions and the document type are dropped. Names keep their namespace prefix (`"soap:Body"`). Attribute values are written in sorted order, numbers and booleans become text.
+
+```lua
+local root = Quark.XML.Decode('<server port="7777"><motd>Hello</motd></server>')
+local port = tonumber(root.Attributes.port)
+local motd = Quark.XML.GetText(Quark.XML.Find(root, "motd"))
+```
+
+## INI
+
+| Function | |
+| --- | --- |
+| `INI.Decode(input, options?, callback?)` | table of sections, keys before the first section are stored at the top level |
+| `INI.Encode(document)` | INI text, scalar values at the top level form the general section, tables become sections |
+
+Values are decoded as strings. Sections cannot be nested.
+
+## JSON Schema
+
+| Function | |
+| --- | --- |
+| `JSON.Validate(value, schema)` | `true`, or `false` and a list of `{ Path, Message }` errors |
+| `JSON.Schema(schema)` | compiled validator with `:Validate(value)` and `:IsValid(value)`, compile once when validating many values |
+
+The schema is a Lua table or JSON text. Drafts 4, 6, 7, 2019-09 and 2020-12 are supported, the draft is taken from `$schema` and defaults to 2020-12. Error paths are JSON pointers (`/items/0/name`), so array positions count from 0. References to other documents are not fetched, neither over the network nor from files, a schema using them fails to compile.
+
+```lua
+local Player = Quark.JSON.Schema({
+    type = "object",
+    required = { "name" },
+    properties = { name = { type = "string", minLength = 3 } },
+})
+
+local valid, errors = Player:Validate(request)
+```

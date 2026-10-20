@@ -37,10 +37,12 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | `Crypto` | [docs/crypto.md](docs/crypto.md): hashing, HMAC, key derivation, password hashing, encryption, signatures, JWT, one time passwords, secure randomness |
 | `Buffer` | [docs/buffer.md](docs/buffer.md): mutable byte arrays with typed number access, accepted wherever binary data is expected |
 | `Promise` | [docs/promise.md](docs/promise.md): promises, `Quark.Async` / `Quark.Await`, `Quark.Delay` |
-| `JSON`, `TOML`, `YAML`, `MessagePack`, `CBOR` | [docs/formats.md](docs/formats.md#data-formats): encoding and decoding, optionally off the game thread |
+| `JSON`, `TOML`, `YAML`, `MessagePack`, `CBOR` | [docs/formats.md](docs/formats.md#data-formats): encoding and decoding, optionally off the game thread, JSON Schema validation |
+| `XML`, `INI` | [docs/formats.md](docs/formats.md#xml): element trees and configuration files |
 | `CSV` | [docs/formats.md](docs/formats.md#csv): tables with and without header |
 | `UUID` | [docs/formats.md](docs/formats.md#uuid): versions 4 and 7, parsing, timestamps |
 | `URL` | [docs/formats.md](docs/formats.md#url): percent encoding, query strings, parsing |
+| `Compression`, `Zip`, `Tar` | [docs/compression.md](docs/compression.md): LZ4, Zstandard, Gzip, Deflate, Zlib, Brotli and archives in memory |
 | `Testing` | [docs/testing.md](docs/testing.md): unit tests with async support, expectations, spies and mocks |
 
 ### Async functions
@@ -101,6 +103,7 @@ Packages/quark/
 
 ```
 crates/
+├── quark-compression  Compression, Zip and Tar modules
 ├── quark-core     module registry, lazy imports, error boundary, event pump, worker runtime, Buffer, Promise
 ├── quark-crypto   Crypto module
 ├── quark-formats  JSON, TOML, YAML, MessagePack, CBOR, CSV, UUID and URL modules

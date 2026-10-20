@@ -177,3 +177,4 @@ Secrets are Base32 strings as used by authenticator apps.
 | `Crypto.HexEncode` / `HexDecode` | hex |
 | `Crypto.Base64Encode(data, url_safe?)` / `Base64Decode(text, url_safe?)` | Base64, padding is optional when decoding |
 | `Crypto.Base32Encode` / `Base32Decode` | Base32 (RFC 4648), decoding ignores case, spaces and padding |
+| `Crypto.Base58Encode` / `Base58Decode` | Base58 with the Bitcoin alphabet |
