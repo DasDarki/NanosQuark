@@ -15,6 +15,46 @@ const MODULES: &[Module] = &[
         name: "Crypto",
         build: quark_crypto::build,
     },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "JSON",
+        build: quark_formats::json,
+    },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "TOML",
+        build: quark_formats::toml,
+    },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "YAML",
+        build: quark_formats::yaml,
+    },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "MessagePack",
+        build: quark_formats::message_pack,
+    },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "CBOR",
+        build: quark_formats::cbor,
+    },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "CSV",
+        build: quark_formats::csv,
+    },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "UUID",
+        build: quark_formats::uuid,
+    },
+    #[cfg(feature = "formats")]
+    Module {
+        name: "URL",
+        build: quark_formats::url,
+    },
     #[cfg(feature = "testing")]
     Module {
         name: "Testing",
