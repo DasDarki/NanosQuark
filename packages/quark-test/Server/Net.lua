@@ -657,3 +657,98 @@ Test.Describe("HTTP client", function()
         server:Close()
     end)
 end)
+
+Test.Describe("WebSocket reconnect", function()
+    local WebSocket = Quark.WebSocket
+    local FAST = { InitialDelay = 30, MaxDelay = 60 }
+
+    local function server_on(port)
+        local server = assert(WebSocket.Listen(port or 0, { Host = "127.0.0.1" }))
+        local received = {}
+        local clients = {}
+        server:Subscribe("Connection", function(client)
+            clients[#clients + 1] = client
+            client:Subscribe("Message", function(data) received[#received + 1] = data end)
+        end)
+        return server, received, clients
+    end
+
+    Test.It("reconnects after the server drops the connection", function()
+        local server, received, clients = server_on()
+        local client = WebSocket.Connect("ws://127.0.0.1:" .. server:GetPort(), { Reconnect = FAST })
+        Quark.Await(next_event(client, "Open"))
+        Quark.Await(Quark.Delay(20))
+
+        local disconnected = next_event(client, "Disconnect")
+        local reconnecting = next_event(client, "Reconnect")
+        local reopened = Promise.New(function(resolve)
+            client:Subscribe("Disconnect", function()
+                client:Subscribe("Open", resolve)
+            end)
+        end)
+        clients[1]:Close(4002, "kicked")
+
+        local code, reason = Quark.Await(disconnected)
+        Expect(code):ToBe(4002)
+        Expect(reason):ToBe("kicked")
+        local attempt, delay = Quark.Await(reconnecting)
+        Expect(attempt):ToBe(1)
+        Expect(delay):ToBeLessThanOrEqual(60)
+        Expect(client:GetState()):ToBe("connecting")
+        client:Send("queued while reconnecting")
+
+        Quark.Await(reopened)
+        Expect(client:IsOpen()):ToBe(true)
+        Quark.Await(Quark.Delay(50))
+        Expect(received):ToContain("queued while reconnecting")
+        Expect(#clients):ToBe(2)
+
+        local closed = next_event(client, "Close")
+        client:Close()
+        Expect(Quark.Await(closed)):ToBe(1000)
+        server:Close()
+    end)
+
+    Test.It("gives up after MaxAttempts", function()
+        local server = server_on()
+        local port = server:GetPort()
+        local server_closed = next_event(server, "Close")
+        server:Close()
+        Quark.Await(server_closed)
+
+        local client = WebSocket.Connect("ws://127.0.0.1:" .. port, {
+            Reconnect = { InitialDelay = 20, MaxDelay = 40, MaxAttempts = 2 },
+        })
+        local attempts = {}
+        client:Subscribe("Reconnect", function(attempt) attempts[#attempts + 1] = attempt end)
+        local errors = 0
+        client:Subscribe("Error", function() errors = errors + 1 end)
+
+        local code, reason = Quark.Await(next_event(client, "Close"))
+        Expect(code):ToBe(1006)
+        Expect(reason):ToContain("cannot connect")
+        Expect(attempts):ToEqual({ 1, 2 })
+        Expect(errors):ToBe(3)
+    end)
+
+    Test.It("stops reconnecting when closed", function()
+        local server = server_on()
+        local port = server:GetPort()
+        local server_closed = next_event(server, "Close")
+        server:Close()
+        Quark.Await(server_closed)
+
+        local client = WebSocket.Connect("ws://127.0.0.1:" .. port, { Reconnect = { InitialDelay = 5000, MaxDelay = 5000 } })
+        Quark.Await(next_event(client, "Reconnect"))
+        local closed = next_event(client, "Close")
+        client:Close()
+        local code, reason = Quark.Await(closed)
+        Expect(code):ToBe(1000)
+        Expect(reason):ToBe("closed")
+    end, { Timeout = 2000 })
+
+    Test.It("validates the options", function()
+        Expect(function() WebSocket.Connect("ws://127.0.0.1:1", { Reconnect = { Multiplier = 0.5 } }) end):ToThrow("Multiplier >= 1")
+        Expect(function() WebSocket.Connect("ws://127.0.0.1:1", { Reconnect = "always" }) end):ToThrow("boolean or a table")
+    end)
+end)
