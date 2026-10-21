@@ -1,0 +1,16 @@
+[package]
+name = "quark-redis"
+description = "Redis client with commands, pipelines and pub/sub for Quark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+quark-core.workspace = true
+mlua.workspace = true
+tokio.workspace = true
+
+futures-util.workspace = true
+redis.workspace = true
+tokio-rustls.workspace = true

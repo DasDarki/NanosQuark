@@ -14,6 +14,7 @@ quark-compression = { path = "crates/quark-compression" }
 quark-crypto = { path = "crates/quark-crypto" }
 quark-formats = { path = "crates/quark-formats" }
 quark-net = { path = "crates/quark-net" }
+quark-redis = { path = "crates/quark-redis" }
 quark-testing = { path = "crates/quark-testing" }
 
 mlua = { version = "0.12.2", features = ["lua54", "module"] }
@@ -79,6 +80,8 @@ bytes = "1.12.1"
 http-body-util = "0.1.5"
 hyper = { version = "1.12.0", features = ["client", "server", "http1"] }
 hyper-util = { version = "0.1.21", features = ["tokio"] }
+
+redis = { version = "1.8.0", default-features = false, features = ["tokio-comp", "connection-manager", "tokio-rustls-comp", "tls-rustls-webpki-roots", "script"] }
 
 libc = "0.2"
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }

@@ -105,6 +105,11 @@ const MODULES: &[Module] = &[
         name: "HTTP",
         build: quark_net::http,
     },
+    #[cfg(feature = "redis")]
+    Module {
+        name: "Redis",
+        build: quark_redis::build,
+    },
     #[cfg(feature = "testing")]
     Module {
         name: "Testing",
