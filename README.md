@@ -43,7 +43,7 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | `UUID` | [docs/formats.md](docs/formats.md#uuid): versions 4 and 7, parsing, timestamps |
 | `URL` | [docs/formats.md](docs/formats.md#url): percent encoding, query strings, parsing |
 | `Compression`, `Zip`, `Tar` | [docs/compression.md](docs/compression.md): LZ4, Zstandard, Gzip, Deflate, Zlib, Brotli and archives in memory |
-| `Net`, `TCP`, `UDP`, `WebSocket` | [docs/net.md](docs/net.md): DNS, IP ranges, TCP and UDP sockets, WebSocket clients and servers, TLS for outgoing connections |
+| `Net`, `TCP`, `UDP`, `WebSocket`, `HTTP` | [docs/net.md](docs/net.md): DNS, IP ranges, TCP and UDP sockets, WebSocket clients and servers, HTTP servers with routing and async handlers, TLS for outgoing connections |
 | `Testing` | [docs/testing.md](docs/testing.md): unit tests with async support, expectations, spies and mocks |
 
 ### Async functions
@@ -107,7 +107,7 @@ crates/
 ├── quark-compression  Compression, Zip and Tar modules
 ├── quark-core     module registry, lazy imports, error boundary, event pump, worker runtime, Buffer, Promise
 ├── quark-crypto   Crypto module
-├── quark-net      Net, TCP, UDP and WebSocket modules
+├── quark-net      Net, TCP, UDP, WebSocket and HTTP modules
 ├── quark-formats  JSON, TOML, YAML, MessagePack, CBOR, CSV, UUID and URL modules
 └── quark-testing  Testing module
 quark/             the cdylib (luaopen_quark), selects modules through Cargo features

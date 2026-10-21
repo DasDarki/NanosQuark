@@ -130,6 +130,98 @@ Server.Subscribe("PlayerSpawn", function(player)
 end)
 ```
 
+## HTTP
+
+```lua
+local server = assert(Quark.HTTP.Listen(8080))
+server:Use(Quark.HTTP.Cors({ Origin = "*" }))
+
+server:Get("/players/:id", function(request, response)
+    local player = Quark.Await(LoadPlayer, request.Params.id)
+    if not player then
+        return response:Json({ error = "not found" }, 404)
+    end
+    response:Json(player)
+end)
+
+server:Post("/login", function(request, response)
+    local body = request:Json()
+    local valid = Quark.Await(Quark.Crypto.PasswordVerify, body.password, stored_hash)
+    response:Status(valid and 200 or 401):Json({ ok = valid })
+end)
+```
+
+Every request runs in its own `Quark.Async` coroutine, so handlers can `Quark.Await` database queries, password hashing or other requests while the server keeps serving. A handler has to send the response before it returns, either directly or after awaiting.
+
+`HTTP.Listen(port, options?)` returns a server or `nil, message`.
+
+| Option | |
+| --- | --- |
+| `Host` | address to listen on (`"0.0.0.0"`) |
+| `MaxBodySize` | larger request bodies are answered with 413 (1 MiB) |
+| `Timeout` | requests without a response after this many milliseconds are answered with 504 (30000) |
+| `MaxConnections` | further connections are dropped (1024) |
+
+| Server method | |
+| --- | --- |
+| `:Get(pattern, handler)`, `:Post`, `:Put`, `:Patch`, `:Delete`, `:Options` | add a route, returns the server for chaining |
+| `:All(pattern, handler)` | route for every method |
+| `:Route(method, pattern, handler)` | route for any method name |
+| `:Use(middleware)` | add a middleware `function(request, response, next)` |
+| `:GetPort()`, `:Close()` | as for TCP |
+
+Patterns start with `/`. `:name` captures a segment into `request.Params.name`, a trailing `*` captures the rest of the path into `request.Params["*"]`. Routes are tried in the order they were added, captured segments are percent decoded. `GET` routes also answer `HEAD` requests without a body.
+
+| Request field | |
+| --- | --- |
+| `Method`, `Path` | `"GET"`, `"/players/42"` |
+| `Params` | captured path segments |
+| `Query`, `RawQuery` | decoded query parameters and the raw query string |
+| `Headers` | lowercase header names, repeated headers joined with `, ` |
+| `Body` | raw body |
+| `RemoteAddress` | IP address of the client |
+| `:Json()` | decoded body, or `nil, message` |
+| `:GetHeader(name)` | header value, case insensitive |
+
+| Response method | |
+| --- | --- |
+| `:Status(code)` / `:Header(name, value)` | set the status (default 200) or a header, chainable |
+| `:Json(value, status?)` | send JSON |
+| `:Text(text, status?)` / `:Html(html, status?)` | send text or HTML |
+| `:Send(body?, content_type?, status?)` | send any body, the type defaults to text for UTF-8 and binary otherwise |
+| `:Redirect(location, status?)` | redirect, 302 by default |
+| `:IsSent()`, `:GetStatus()` | state of the response |
+
+A response can be sent once, a second send raises an error. Unknown paths are answered with 404, known paths with the wrong method with 405 and an `Allow` header. Errors in handlers and handlers that return without responding produce a 500 and are logged with `Console.Error`, the error message is never sent to the client.
+
+### Middleware
+
+Middleware runs before the route for every request, also for 404 responses. Calling `next()` continues with the next middleware or the route and returns when they are done, so code after `next()` runs afterwards. Sending a response without calling `next()` ends the request early:
+
+```lua
+server:Use(function(request, response, next)
+    local claims = Quark.Crypto.JWTVerify((request.Headers.authorization or ""):gsub("^Bearer ", ""), secret)
+    if not claims then
+        return response:Json({ error = "unauthorized" }, 401)
+    end
+    request.User = claims
+    next()
+end)
+```
+
+`HTTP.Cors(options?)` creates a middleware for cross origin requests and answers preflight requests:
+
+| Option | |
+| --- | --- |
+| `Origin` | `"*"` (default), one origin or a list of origins |
+| `Methods`, `Headers` | allowed methods and request headers |
+| `Credentials` | allow cookies and authorization headers, needs explicit origins |
+| `MaxAge` | how long browsers cache the preflight, in seconds (600) |
+
+### Compared to the nanos world HTTP server
+
+nanos world has its own HTTP server on the game port, enabled with `--enable_http_server`, with one server for the whole game server. Quark servers run on their own ports, every package can have its own, and handlers can wait for asynchronous work.
+
 ## Security
 
-Servers bind to all interfaces by default and are reachable from the internet if the firewall allows it. Validate everything received, limit message sizes with `MaxFrameSize` / `MaxMessageSize` and connection counts with `MaxConnections`. TLS is available for outgoing connections, for incoming TLS put a reverse proxy in front of the server.
+Servers bind to all interfaces by default and are reachable from the internet if the firewall allows it. Validate everything received, limit message sizes with `MaxFrameSize` / `MaxMessageSize` and connection counts with `MaxConnections`. TLS is available for outgoing connections, for incoming TLS (HTTPS, WSS) put a reverse proxy in front of the server.
