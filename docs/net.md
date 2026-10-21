@@ -200,7 +200,8 @@ Middleware runs before the route for every request, also for 404 responses. Call
 
 ```lua
 server:Use(function(request, response, next)
-    local claims = Quark.Crypto.JWTVerify((request.Headers.authorization or ""):gsub("^Bearer ", ""), secret)
+    local token = (request.Headers.authorization or ""):match("^Bearer (.+)$")
+    local claims = token and Quark.Crypto.JWTVerify(token, secret)
     if not claims then
         return response:Json({ error = "unauthorized" }, 401)
     end
