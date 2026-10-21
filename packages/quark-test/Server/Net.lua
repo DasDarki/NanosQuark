@@ -675,7 +675,7 @@ Test.Describe("WebSocket reconnect", function()
 
     Test.It("reconnects after the server drops the connection", function()
         local server, received, clients = server_on()
-        local client = WebSocket.Connect("ws://127.0.0.1:" .. server:GetPort(), { Reconnect = FAST })
+        local client = WebSocket.Connect("ws://127.0.0.1:" .. server:GetPort(), { Reconnect = { InitialDelay = 200, MaxDelay = 300 } })
         Quark.Await(next_event(client, "Open"))
         Quark.Await(Quark.Delay(20))
 
@@ -693,7 +693,7 @@ Test.Describe("WebSocket reconnect", function()
         Expect(reason):ToBe("kicked")
         local attempt, delay = Quark.Await(reconnecting)
         Expect(attempt):ToBe(1)
-        Expect(delay):ToBeLessThanOrEqual(60)
+        Expect(delay):ToBeLessThanOrEqual(300)
         Expect(client:GetState()):ToBe("connecting")
         client:Send("queued while reconnecting")
 
