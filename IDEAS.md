@@ -69,7 +69,8 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] TLS for servers, custom root certificates, self signed certificates for development
 - [x] WebSocket reconnect with exponential backoff and jitter
 - [ ] HTTP/2, response compression, client certificates (mutual TLS)
-- [ ] Optional: Redis client and pub/sub for multi server setups, MQTT / NATS messaging
+- [x] Redis client with commands, pipelines, transactions, pub/sub and automatic reconnects
+- [ ] Redis streams and cluster support, MQTT / NATS messaging
 - [ ] Optional: GeoIP lookup (MaxMind database) for player countries
 
 ## Formats

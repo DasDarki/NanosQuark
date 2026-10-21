@@ -44,6 +44,7 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | `URL` | [docs/formats.md](docs/formats.md#url): percent encoding, query strings, parsing |
 | `Compression`, `Zip`, `Tar` | [docs/compression.md](docs/compression.md): LZ4, Zstandard, Gzip, Deflate, Zlib, Brotli and archives in memory |
 | `Net`, `TCP`, `UDP`, `WebSocket`, `HTTP` | [docs/net.md](docs/net.md): DNS, IP ranges, TCP and UDP sockets, WebSocket clients and servers, HTTP servers with routing, async handlers, WebSocket routes and static files, HTTP client, TLS for clients and servers |
+| `Redis` | [docs/redis.md](docs/redis.md): Redis client with commands, pipelines, transactions and pub/sub |
 | `Testing` | [docs/testing.md](docs/testing.md): unit tests with async support, expectations, spies and mocks |
 
 ### Async functions
@@ -108,6 +109,7 @@ crates/
 ├── quark-core     module registry, lazy imports, error boundary, event pump, worker runtime, Buffer, Promise
 ├── quark-crypto   Crypto module
 ├── quark-net      Net, TCP, UDP, WebSocket and HTTP modules
+├── quark-redis    Redis module
 ├── quark-formats  JSON, TOML, YAML, MessagePack, CBOR, CSV, UUID and URL modules
 └── quark-testing  Testing module
 quark/             the cdylib (luaopen_quark), selects modules through Cargo features
@@ -149,7 +151,7 @@ These details were verified against server version 1.160.0 and shape the design:
 tools/test-host/run.sh
 ```
 
-runs the test suite in [packages/quark-test](packages/quark-test) on Linux without a nanos world server, see [docs/testing.md](docs/testing.md#running-tests-without-a-server). The same package runs inside the server as well.
+runs the test suite in [packages/quark-test](packages/quark-test) on Linux without a nanos world server. The Redis tests run when a Redis server answers at `QUARK_REDIS_URL` (default `redis://127.0.0.1:16379`) and are skipped otherwise, see [docs/testing.md](docs/testing.md#running-tests-without-a-server). The same package runs inside the server as well.
 
 ## License
 
