@@ -4,7 +4,7 @@
 local redis = Quark.Redis.Connect("redis://127.0.0.1:6379")
 
 redis:Set("motd", "Welcome!")
-redis:SortedSetIncrement("kills", player:GetAccountID(), 1)
+redis:SortedSetIncrement("kills", player_id, 1)
 
 Quark.Async(function()
     local top = Quark.Await(redis.SortedSetRange, redis, "kills", 0, 9, { Reverse = true, WithScores = true })
@@ -88,7 +88,7 @@ After a connection loss the subscriber reconnects with a growing delay (0.5 to 1
 local events = Quark.Redis.Subscriber("redis://127.0.0.1:6379")
 events:Listen("chat")
 events:Subscribe("Message", function(channel, message)
-    Chat.BroadcastMessage(message)
+    Console.Log("[" .. channel .. "] " .. message)
 end)
 
 redis:Publish("chat", "Server 2 restarts in 5 minutes")
