@@ -64,10 +64,11 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] WebSocket client (ws and wss) and server with path filter, request headers, broadcast and close codes
 - [x] TLS for outgoing TCP and WebSocket connections (rustls with the Mozilla root store)
 - [x] HTTP server with routing, path parameters, middleware, CORS and async handlers
-- [ ] HTTP server: WebSocket upgrades on the same port, static files, cookies and multipart forms
-- [ ] HTTP client with streaming and timeouts (nanos world has `HTTP.RequestAsync`)
-- [ ] TLS for servers and custom root certificates
-- [ ] WebSocket reconnect with backoff
+- [x] HTTP server: WebSocket routes on the same port, static files, cookies, url encoded and multipart forms
+- [x] HTTP client with redirects, timeouts, size limits and streaming
+- [x] TLS for servers, custom root certificates, self signed certificates for development
+- [x] WebSocket reconnect with exponential backoff and jitter
+- [ ] HTTP/2, response compression, client certificates (mutual TLS)
 - [ ] Optional: Redis client and pub/sub for multi server setups, MQTT / NATS messaging
 - [ ] Optional: GeoIP lookup (MaxMind database) for player countries
 

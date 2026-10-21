@@ -35,6 +35,7 @@ Every object emits `Error(message)` for problems and exactly one `Close` at the 
 | `Net.IsInRange(ip, range)` | whether the address is in a CIDR range like `10.0.0.0/8` or `2001:db8::/32` |
 | `Net.IsPrivate(ip)` | private, carrier grade NAT, link local and unique local ranges |
 | `Net.IsLoopback(ip)` | `127.0.0.0/8` and `::1` |
+| `Net.CreateSelfSignedCertificate(names)` | `certificate, private_key` as PEM for one host name or a list, for development and tests |
 
 `MX` records are `{ Priority, Exchange }`, `SRV` records `{ Priority, Weight, Port, Target }`, all other records are strings. Lookups without a callback block until the DNS server answers, use a callback or `Quark.Await`.
 
@@ -43,6 +44,26 @@ if Quark.Net.IsInRange(player_ip, "10.0.0.0/8") then
     Console.Log("player from the local network")
 end
 ```
+
+## TLS
+
+Outgoing connections verify the server certificate against the Mozilla root store. Servers take their certificate as PEM text, for example read from a file of the package:
+
+| Option | | |
+| --- | --- | --- |
+| `TLS = true` | TCP.Connect | encrypt the connection (`wss://` and `https://` URLs always do) |
+| `ServerName` | TCP.Connect | name the certificate has to be valid for, defaults to the host |
+| `CA` | clients | additional trusted certificates as PEM, for self signed or internal certificates |
+| `TLS = { Certificate, PrivateKey }` | servers | serve TLS (HTTPS, WSS, TLS over TCP), the certificate may contain the whole chain |
+
+```lua
+local certificate, private_key = Quark.Net.CreateSelfSignedCertificate("localhost")
+local server = assert(Quark.HTTP.Listen(8443, { TLS = { Certificate = certificate, PrivateKey = private_key } }))
+
+local response = Quark.Await(Quark.HTTP.Get, "https://localhost:8443/", { CA = certificate })
+```
+
+TLS 1.2 and 1.3 are supported, handshakes time out after 10 seconds. Certificates that do not match their private key are rejected when the server starts.
 
 ## TCP
 
@@ -55,8 +76,9 @@ end
 | --- | --- | --- |
 | `Framing` | both | `"raw"` (default): `Data` receives chunks as they arrive. `"line"`: one `Data` per line, `Send` appends the newline. `"length"`: every message is prefixed with its length as 32 bit big endian, `Send` adds the prefix |
 | `MaxFrameSize` | both | largest line or length framed message (16 MiB) |
-| `TLS`, `ServerName` | Connect | encrypt the connection, verify the certificate against the Mozilla root store, `ServerName` defaults to the host |
+| `TLS`, `ServerName`, `CA` | Connect | encryption, see [TLS](#tls) |
 | `Timeout` | Connect | connect and TLS handshake timeout in milliseconds (10000) |
+| `TLS` | Listen | certificate and key, see [TLS](#tls) |
 | `Host` | Listen | address to listen on (`"0.0.0.0"`, use `"127.0.0.1"` for local only access) |
 | `MaxConnections` | Listen | further connections are dropped (1024) |
 
@@ -101,6 +123,9 @@ end)
 | --- | --- | --- |
 | `Headers` | Connect | extra request headers |
 | `Timeout` | Connect | connect and handshake timeout in milliseconds (10000) |
+| `CA` | Connect | additional trusted certificates for `wss://`, see [TLS](#tls) |
+| `Reconnect` | Connect | reconnect after connection losses, see below |
+| `TLS` | Listen | certificate and key, see [TLS](#tls) |
 | `MaxMessageSize` | both | largest message (16 MiB) |
 | `Host`, `MaxConnections` | Listen | as for TCP |
 | `Path` | Listen | only accept this path, other paths get a 404 |
@@ -118,6 +143,25 @@ end)
 | `:GetPort()`, `:GetClients()`, `:Close()` | as for TCP |
 
 Pings are answered automatically. The close code is 1005 when the peer sent no code and 1006 when the connection broke without a close frame.
+
+### Reconnecting
+
+With `Reconnect = true` or a table of settings a client reconnects whenever the connection is lost or cannot be established:
+
+| Setting | |
+| --- | --- |
+| `InitialDelay` | delay before the first attempt in milliseconds (1000) |
+| `MaxDelay` | upper limit of the delay (30000) |
+| `Multiplier` | growth of the delay per attempt (2) |
+| `MaxAttempts` | give up after this many attempts in a row, unlimited by default |
+
+Delays vary randomly by up to 20 percent so that many clients do not reconnect at the same moment. A connection loss emits `Disconnect(code, reason)` instead of `Close`, every attempt emits `Reconnect(attempt, delay)` and a successful attempt emits `Open` again. Messages sent while reconnecting are queued and sent once the connection is back. `Close` is only emitted at the very end: after `:Close()`, when the package unloads or when `MaxAttempts` is exceeded.
+
+```lua
+local socket = Quark.WebSocket.Connect("wss://events.example.com", { Reconnect = { MaxDelay = 10000 } })
+socket:Subscribe("Open", function() socket:Send("subscribe") end)
+socket:Subscribe("Disconnect", function(code) Console.Warn("lost connection: " .. code) end)
+```
 
 ```lua
 local server = assert(Quark.WebSocket.Listen(8080, { Path = "/live" }))
@@ -161,12 +205,16 @@ Every request runs in its own `Quark.Async` coroutine, so handlers can `Quark.Aw
 | `MaxBodySize` | larger request bodies are answered with 413 (1 MiB) |
 | `Timeout` | requests without a response after this many milliseconds are answered with 504 (30000) |
 | `MaxConnections` | further connections are dropped (1024) |
+| `MaxMessageSize` | largest WebSocket message on WebSocket routes (16 MiB) |
+| `TLS` | serve HTTPS, see [TLS](#tls) |
 
 | Server method | |
 | --- | --- |
 | `:Get(pattern, handler)`, `:Post`, `:Put`, `:Patch`, `:Delete`, `:Options` | add a route, returns the server for chaining |
 | `:All(pattern, handler)` | route for every method |
 | `:Route(method, pattern, handler)` | route for any method name |
+| `:WebSocket(pattern, handler)` | WebSocket route on the same port, see below |
+| `:Static(prefix, directory, options?)` | serve files, see below |
 | `:Use(middleware)` | add a middleware `function(request, response, next)` |
 | `:GetPort()`, `:Close()` | as for TCP |
 
@@ -179,8 +227,11 @@ Patterns start with `/`. `:name` captures a segment into `request.Params.name`, 
 | `Query`, `RawQuery` | decoded query parameters and the raw query string |
 | `Headers` | lowercase header names, repeated headers joined with `, ` |
 | `Body` | raw body |
+| `Cookies` | cookies sent by the client, values decoded |
 | `RemoteAddress` | IP address of the client |
+| `IsWebSocket` | whether the request asks for a WebSocket upgrade |
 | `:Json()` | decoded body, or `nil, message` |
+| `:Form()` | `fields, files` of an `application/x-www-form-urlencoded` or `multipart/form-data` body, or `nil, message`. Files are `{ Field, FileName, ContentType, Data }` |
 | `:GetHeader(name)` | header value, case insensitive |
 
 | Response method | |
@@ -190,9 +241,29 @@ Patterns start with `/`. `:name` captures a segment into `request.Params.name`, 
 | `:Text(text, status?)` / `:Html(html, status?)` | send text or HTML |
 | `:Send(body?, content_type?, status?)` | send any body, the type defaults to text for UTF-8 and binary otherwise |
 | `:Redirect(location, status?)` | redirect, 302 by default |
+| `:SendFile(path, options?)` | send a file, read on a worker thread. Options `MaxAge` (cache seconds), `ContentType`, `MaxFileSize` (64 MiB). Missing files become 404 |
+| `:Cookie(name, value, options?)` | set a cookie, chainable. Options `MaxAge`, `Path` (`"/"`), `Domain`, `Secure`, `HttpOnly` (`true`), `SameSite` (`"Lax"`, `"Strict"` or `"None"`, which requires `Secure`) |
+| `:ClearCookie(name, options?)` | delete a cookie, use the same `Path` and `Domain` as when setting it |
 | `:IsSent()`, `:GetStatus()` | state of the response |
 
 A response can be sent once, a second send raises an error. Unknown paths are answered with 404, known paths with the wrong method with 405 and an `Allow` header. Errors in handlers and handlers that return without responding produce a 500 and are logged with `Console.Error`, the error message is never sent to the client.
+
+### WebSocket routes
+
+`server:WebSocket(pattern, handler)` accepts WebSocket connections on the HTTP port. The handler receives the same socket object as `WebSocket.Listen` and the request, it runs in a coroutine like route handlers:
+
+```lua
+server:WebSocket("/live/:room", function(socket, request)
+    socket:Send("welcome to " .. request.Params.room)
+    socket:Subscribe("Message", function(data) Console.Log(data) end)
+end)
+```
+
+Middleware runs before the upgrade, so authentication and CORS apply to WebSocket routes as well. A middleware can refuse the upgrade by sending a response, `request.IsWebSocket` tells upgrade requests apart. A normal `GET` on the same path is routed to `GET` routes.
+
+### Static files
+
+`server:Static("/assets", "Packages/my-package/web")` serves the files of a directory below a prefix. The directory is relative to the working directory of the server. A request for a directory serves its `index.html` (option `Index`), the other options are those of `SendFile`. Paths containing `..`, absolute paths and symbolic links pointing outside of the directory are answered with 404.
 
 ### Middleware
 
@@ -223,6 +294,39 @@ end)
 
 nanos world has its own HTTP server on the game port, enabled with `--enable_http_server`, with one server for the whole game server. Quark servers run on their own ports, every package can have its own, and handlers can wait for asynchronous work.
 
+## HTTP client
+
+| Function | |
+| --- | --- |
+| `HTTP.Request(options, callback?)` | send a request, `options.URL` is required |
+| `HTTP.Get(url, options?, callback?)` | `GET` request |
+| `HTTP.Post(url, body, options?, callback?)` | `POST` request, a table body is sent as JSON |
+| `HTTP.Stream(options)` | streaming request object, see below |
+
+| Option | |
+| --- | --- |
+| `URL`, `Method` | target and method (`"GET"`) |
+| `Headers` | request headers |
+| `Query` | query parameters appended to the URL |
+| `Body` / `Json` | raw body (string or buffer) or a value sent as JSON |
+| `Timeout` | for connecting and for the whole response in milliseconds (30000) |
+| `MaxBodySize` | larger responses fail (16 MiB) |
+| `FollowRedirects`, `MaxRedirects` | follow redirects (`true`, at most 5), 303 and redirected `POST`s continue as `GET` |
+| `CA` | additional trusted certificates, see [TLS](#tls) |
+
+The result is `{ Status, Headers, Body, URL }` with the final URL after redirects, `:Json()` and `:IsSuccess()`. Error statuses like 404 are normal responses, only network problems, timeouts and size limits fail with `nil, message`.
+
+```lua
+local response = Quark.Await(Quark.HTTP.Get, "https://api.example.com/players", { Query = { page = 2 } })
+if response:IsSuccess() then
+    local players = response:Json()
+end
+```
+
+Without a callback a request blocks the game thread until it finishes. Never send a blocking request to a Quark HTTP server in the same nanos world server: its handlers run on the blocked game thread, so the request waits until it times out. Use a callback or `Quark.Await`.
+
+`HTTP.Stream(options)` takes the same options and returns an object with the events `Response(status, headers, url)`, `Data(chunk)`, `End`, `Error(message)` and `Close(reason)`, for downloads that should not be held in memory as a whole. `:Close()` aborts the download.
+
 ## Security
 
-Servers bind to all interfaces by default and are reachable from the internet if the firewall allows it. Validate everything received, limit message sizes with `MaxFrameSize` / `MaxMessageSize` and connection counts with `MaxConnections`. TLS is available for outgoing connections, for incoming TLS (HTTPS, WSS) put a reverse proxy in front of the server.
+Servers bind to all interfaces by default and are reachable from the internet if the firewall allows it. Validate everything received, limit message sizes with `MaxFrameSize` / `MaxMessageSize`, bodies with `MaxBodySize` and connection counts with `MaxConnections`. Use TLS for servers reachable from the internet. Requests to URLs supplied by players can reach services in the local network of the server, check them with `Net.IsPrivate` and `Net.IsLoopback` after resolving.
