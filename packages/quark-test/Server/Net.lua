@@ -52,10 +52,10 @@ Test.Describe("Net", function()
     end)
 
     Test.It("accepts a callback in place of the record type", function()
-        local ok, reason = pcall(Quark.Await, Net.Lookup, "does-not-exist.invalid")
-        Expect(ok):ToBe(false)
-        Expect(reason):ToContain("cannot look up A records")
+        local returned = table.pack(Net.Lookup("example.com", function() end))
+        Expect(returned.n):ToBe(0)
         Expect(function() Net.Lookup("example.com", "SOA") end):ToThrow("unsupported record type")
+        Expect(function() Net.Lookup("example.com", {}) end):ToThrow("expected a record type or a callback")
     end)
 end)
 
@@ -245,6 +245,215 @@ Test.Describe("WebSocket", function()
         local client = WebSocket.Connect("ws://127.0.0.1:" .. server:GetPort() .. "/other")
         Expect(Quark.Await(next_event(client, "Error"))):ToContain("handshake failed")
         Expect(function() WebSocket.Connect("http://example.com") end):ToThrow("ws:// or wss://")
+        server:Close()
+    end)
+end)
+
+Test.Describe("HTTP", function()
+    local HTTP = Quark.HTTP
+
+    local function request(port, method, path, headers, body)
+        return Promise.New(function(resolve, reject)
+            local socket = Quark.TCP.Connect("127.0.0.1", port)
+            local chunks = {}
+            socket:Subscribe("Connect", function()
+                local lines = { method .. " " .. path .. " HTTP/1.1", "Host: localhost", "Connection: close" }
+                for name, value in pairs(headers or {}) do
+                    lines[#lines + 1] = name .. ": " .. value
+                end
+                if body then
+                    lines[#lines + 1] = "Content-Length: " .. #body
+                end
+                socket:Send(table.concat(lines, "\r\n") .. "\r\n\r\n" .. (body or ""))
+            end)
+            socket:Subscribe("Data", function(data)
+                chunks[#chunks + 1] = data
+            end)
+            socket:Subscribe("Error", reject)
+            socket:Subscribe("Close", function()
+                local raw = table.concat(chunks)
+                local head, content = raw:match("^(.-)\r\n\r\n(.*)$")
+                if not head then
+                    return reject("incomplete response: " .. raw)
+                end
+                local status = tonumber(head:match("^HTTP/1%.1 (%d+)"))
+                local response_headers = {}
+                for name, value in head:gmatch("\r\n([^:\r\n]+):%s*([^\r\n]*)") do
+                    response_headers[name:lower()] = value
+                end
+                resolve({ Status = status, Headers = response_headers, Body = content })
+            end)
+        end)
+    end
+
+    local function api()
+        local server = assert(HTTP.Listen(0, { Host = "127.0.0.1", MaxBodySize = 1024, Timeout = 500 }))
+        server:Get("/players/:id", function(req, res)
+            res:Json({ id = req.Params.id, page = req.Query.page })
+        end)
+        server:Post("/echo", function(req, res)
+            local data, error_message = req:Json()
+            if not data then
+                return res:Json({ error = error_message }, 400)
+            end
+            res:Status(201):Header("X-Echo", "yes"):Json(data)
+        end)
+        server:Get("/slow", function(_, res)
+            Quark.Await(Quark.Delay(30))
+            res:Text("waited")
+        end)
+        server:Get("/files/*", function(req, res)
+            res:Text(req.Params["*"])
+        end)
+        server:Get("/broken", function()
+            error("handler failure")
+        end)
+        server:Get("/silent", function() end)
+        server:Get("/hang", function()
+            Quark.Await(Quark.Delay(2000))
+        end)
+        server:Get("/redirect", function(_, res)
+            res:Redirect("/players/1")
+        end)
+        return server
+    end
+
+    Test.It("routes requests with parameters and query strings", function()
+        local server = api()
+        local response = Quark.Await(request(server:GetPort(), "GET", "/players/42?page=3"))
+        Expect(response.Status):ToBe(200)
+        Expect(response.Headers["content-type"]):ToBe("application/json")
+        Expect(Quark.JSON.Decode(response.Body)):ToEqual({ id = "42", page = "3" })
+
+        local encoded = Quark.Await(request(server:GetPort(), "GET", "/players/a%20b"))
+        Expect(Quark.JSON.Decode(encoded.Body).id):ToBe("a b")
+
+        local wildcard = Quark.Await(request(server:GetPort(), "GET", "/files/maps/test.umap"))
+        Expect(wildcard.Body):ToBe("maps/test.umap")
+        server:Close()
+    end)
+
+    Test.It("reads request bodies and sets status and headers", function()
+        local server = api()
+        local response = Quark.Await(request(server:GetPort(), "POST", "/echo", { ["Content-Type"] = "application/json" }, '{"name":"alice"}'))
+        Expect(response.Status):ToBe(201)
+        Expect(response.Headers["x-echo"]):ToBe("yes")
+        Expect(Quark.JSON.Decode(response.Body)):ToEqual({ name = "alice" })
+
+        local invalid = Quark.Await(request(server:GetPort(), "POST", "/echo", nil, "{broken"))
+        Expect(invalid.Status):ToBe(400)
+        Expect(Quark.JSON.Decode(invalid.Body).error):ToContain("invalid JSON")
+
+        local too_large = Quark.Await(request(server:GetPort(), "POST", "/echo", nil, string.rep("x", 2000)))
+        Expect(too_large.Status):ToBe(413)
+        server:Close()
+    end)
+
+    Test.It("awaits inside handlers", function()
+        local server = api()
+        local slow = request(server:GetPort(), "GET", "/slow")
+        local fast = request(server:GetPort(), "GET", "/players/1")
+        local results = Quark.Await(Promise.All({ slow, fast }))
+        Expect(results[1].Body):ToBe("waited")
+        Expect(results[2].Status):ToBe(200)
+        server:Close()
+    end)
+
+    Test.It("answers unknown routes, wrong methods and failures", function()
+        local server = api()
+        local port = server:GetPort()
+        local report = Test.Mock(Console, "Error")
+
+        local missing = Quark.Await(request(port, "GET", "/nothing"))
+        Expect(missing.Status):ToBe(404)
+
+        local wrong_method = Quark.Await(request(port, "DELETE", "/players/1"))
+        Expect(wrong_method.Status):ToBe(405)
+        Expect(wrong_method.Headers.allow):ToBe("GET")
+
+        Expect(Quark.Await(request(port, "GET", "/broken")).Status):ToBe(500)
+        Expect(Quark.Await(request(port, "GET", "/silent")).Status):ToBe(500)
+        Expect(Quark.Await(request(port, "GET", "/hang")).Status):ToBe(504)
+        Expect(report):ToHaveBeenCalledTimes(2)
+
+        local redirect = Quark.Await(request(port, "GET", "/redirect"))
+        Expect(redirect.Status):ToBe(302)
+        Expect(redirect.Headers.location):ToBe("/players/1")
+
+        local head = Quark.Await(request(port, "HEAD", "/players/1"))
+        Expect(head.Status):ToBe(200)
+        Expect(head.Body):ToBe("")
+        server:Close()
+    end, { Timeout = 5000 })
+
+    Test.It("runs middleware in order", function()
+        local server = assert(HTTP.Listen(0, { Host = "127.0.0.1" }))
+        local order = {}
+        server:Use(function(req, res, next)
+            order[#order + 1] = "first"
+            res:Header("X-Request", req.Method)
+            next()
+            order[#order + 1] = "first after"
+        end)
+        server:Use(function(req, res, next)
+            if req.Headers.authorization ~= "Bearer secret" then
+                return res:Text("Unauthorized", 401)
+            end
+            next()
+        end)
+        server:Get("/private", function(_, res)
+            order[#order + 1] = "handler"
+            res:Text("secret data")
+        end)
+
+        local denied = Quark.Await(request(server:GetPort(), "GET", "/private"))
+        Expect(denied.Status):ToBe(401)
+        Expect(denied.Headers["x-request"]):ToBe("GET")
+
+        order = {}
+        local allowed = Quark.Await(request(server:GetPort(), "GET", "/private", { Authorization = "Bearer secret" }))
+        Expect(allowed.Body):ToBe("secret data")
+        Expect(order):ToEqual({ "first", "handler", "first after" })
+        server:Close()
+    end)
+
+    Test.It("handles CORS", function()
+        local server = assert(HTTP.Listen(0, { Host = "127.0.0.1" }))
+        server:Use(HTTP.Cors({ Origin = { "https://panel.example.com" }, Credentials = true }))
+        server:Get("/data", function(_, res)
+            res:Json({ ok = true })
+        end)
+
+        local preflight = Quark.Await(request(server:GetPort(), "OPTIONS", "/data", {
+            Origin = "https://panel.example.com",
+            ["Access-Control-Request-Method"] = "GET",
+        }))
+        Expect(preflight.Status):ToBe(204)
+        Expect(preflight.Headers["access-control-allow-origin"]):ToBe("https://panel.example.com")
+        Expect(preflight.Headers["access-control-allow-methods"]):ToContain("GET")
+        Expect(preflight.Headers["access-control-allow-credentials"]):ToBe("true")
+
+        local foreign = Quark.Await(request(server:GetPort(), "GET", "/data", { Origin = "https://evil.example.com" }))
+        Expect(foreign.Status):ToBe(200)
+        Expect(foreign.Headers["access-control-allow-origin"]):ToBeNil()
+        server:Close()
+    end)
+
+    Test.It("validates routes and responses", function()
+        local server = assert(HTTP.Listen(0, { Host = "127.0.0.1" }))
+        Expect(function() server:Get("no-slash", function() end) end):ToThrow("have to start with /")
+        Expect(function() server:Get("/a/*/b", function() end) end):ToThrow("only allowed as the last segment")
+        Expect(function() server:Route("BREW", "/coffee", function() end) end):ToThrow("unsupported HTTP method")
+        Expect(function() server:Use("not a function") end):ToThrow("middleware has to be a function")
+
+        server:Get("/double", function(_, res)
+            res:Text("first")
+            res:Text("second")
+        end)
+        local report = Test.Mock(Console, "Error")
+        Expect(Quark.Await(request(server:GetPort(), "GET", "/double")).Body):ToBe("first")
+        Quark.Await(Quark.Delay(20))
+        Expect(report):ToHaveBeenCalled()
         server:Close()
     end)
 end)
