@@ -217,6 +217,25 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     )?;
 
     module.set(
+        "CreateSelfSignedCertificate",
+        lua.create_function(|_, names: LuaValue| {
+            let names = match names {
+                LuaValue::String(name) => vec![name.to_str()?.to_owned()],
+                LuaValue::Table(list) => list
+                    .sequence_values::<String>()
+                    .collect::<LuaResult<Vec<_>>>()?,
+                other => {
+                    return Err(LuaError::runtime(format!(
+                        "expected a host name or a list of host names, got {}",
+                        other.type_name()
+                    )));
+                }
+            };
+            crate::tls::self_signed(names).map_err(LuaError::runtime)
+        })?,
+    )?;
+
+    module.set(
         "IsIP",
         lua.create_function(|_, value: LuaValue| {
             Ok(matches!(value, LuaValue::String(text) if text.to_str().is_ok_and(|text| parse_ip(&text).is_some())))

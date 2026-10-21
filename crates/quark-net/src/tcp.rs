@@ -12,6 +12,7 @@ use crate::connection::{
 };
 use crate::framing::{Decoder, Framing};
 use crate::stream::{self, BoxedIo};
+use crate::tls;
 
 const DEFAULT_TIMEOUT: u64 = 10_000;
 const DEFAULT_MAX_CONNECTIONS: usize = 1024;
@@ -107,16 +108,7 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
 fn connect(lua: &Lua, (host, port, options): (String, u16, Options)) -> LuaResult<LuaAnyUserData> {
     let (framing, max_frame_size) = Framing::from_options(&options)?;
     let timeout = Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?);
-    let tls = match options.get::<LuaValue>("TLS")? {
-        None | Some(LuaValue::Boolean(false)) => None,
-        Some(LuaValue::Boolean(true)) => Some(options.get_or("ServerName", host.clone())?),
-        Some(other) => {
-            return Err(LuaError::runtime(format!(
-                "the TLS option has to be a boolean, got {}",
-                other.type_name()
-            )));
-        }
-    };
+    let tls = tls::client(&options, &host, false)?;
 
     let (connection, commands) = Connection::new(|| Command::Close);
     let object = create_object(
@@ -131,7 +123,7 @@ fn connect(lua: &Lua, (host, port, options): (String, u16, Options)) -> LuaResul
     connection.track(lua, &emitter)?;
 
     runtime().spawn(async move {
-        match stream::connect(&host, port, tls.as_deref(), timeout).await {
+        match stream::connect(&host, port, tls, timeout).await {
             Ok(connected) => {
                 connection.open(connected.local, connected.remote);
                 emitter.emit("Connect", ());
@@ -213,6 +205,7 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
     let host = options.get_or("Host", "0.0.0.0".to_owned())?;
     let (framing, max_frame_size) = Framing::from_options(&options)?;
     let max_connections = options.get_or("MaxConnections", DEFAULT_MAX_CONNECTIONS)?;
+    let acceptor = tls::server(&options)?;
 
     let listener = match bind_tcp(&host, port) {
         Ok(listener) => listener,
@@ -247,12 +240,22 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                             drop(socket);
                             continue;
                         }
-                        let _ = socket.set_nodelay(true);
                         let local = socket.local_addr().ok();
                         let shared = Arc::clone(&shared);
                         let active = Arc::clone(&active);
+                        let emitter = emitter.clone();
+                        let acceptor = acceptor.clone();
                         active.fetch_add(1, Ordering::AcqRel);
 
+                        runtime().spawn(async move {
+                        let io = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_TIMEOUT)).await {
+                            Ok(io) => io,
+                            Err(error) => {
+                                emitter.emit("Error", error);
+                                active.fetch_sub(1, Ordering::AcqRel);
+                                return;
+                            }
+                        };
                         emitter.with(move |lua, server| {
                             let (connection, commands) = Connection::new(|| Command::Close);
                             connection.open(local, Some(remote));
@@ -264,10 +267,11 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                             clients.raw_set(&client, true)?;
 
                             runtime().spawn(async move {
-                                drive(Box::new(socket), connection, client_emitter, framing, max_frame_size, commands).await;
+                                drive(io, connection, client_emitter, framing, max_frame_size, commands).await;
                                 active.fetch_sub(1, Ordering::AcqRel);
                             });
                             emit_now(lua, server, "Connection", client)
+                        });
                         });
                     }
                     Err(error) => {

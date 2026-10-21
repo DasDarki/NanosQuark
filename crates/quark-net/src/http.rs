@@ -18,11 +18,14 @@ use quark_core::{
 use tokio::sync::oneshot;
 
 use crate::connection::{Connected, Connection, add_connection_methods, bind_tcp};
+use crate::stream;
+use crate::tls;
 
 const SOURCE: &str = include_str!("http.lua");
 const DEFAULT_MAX_BODY_SIZE: usize = 1024 * 1024;
 const DEFAULT_TIMEOUT: u64 = 30_000;
 const DEFAULT_MAX_CONNECTIONS: usize = 1024;
+const DEFAULT_HANDSHAKE_TIMEOUT: u64 = 10_000;
 const ROUTE_METHODS: &[(&str, &str)] = &[
     ("Get", "GET"),
     ("Post", "POST"),
@@ -306,6 +309,8 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
         timeout: Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?),
     };
 
+    let acceptor = tls::server(&options)?;
+
     let listener = match bind_tcp(&host, port) {
         Ok(listener) => listener,
         Err(error) => return Ok(Err(error)),
@@ -340,18 +345,25 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                             drop(socket);
                             continue;
                         }
-                        let _ = socket.set_nodelay(true);
                         active.fetch_add(1, Ordering::AcqRel);
                         let emitter = emitter.clone();
                         let active = Arc::clone(&active);
+                        let acceptor = acceptor.clone();
                         runtime().spawn(async move {
+                            let io = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_HANDSHAKE_TIMEOUT)).await {
+                                Ok(io) => io,
+                                Err(_) => {
+                                    active.fetch_sub(1, Ordering::AcqRel);
+                                    return;
+                                }
+                            };
                             let service = service_fn(move |request| {
                                 let emitter = emitter.clone();
                                 async move { Ok::<_, Infallible>(handle(request, remote, emitter, settings).await) }
                             });
                             let _ = http1::Builder::new()
                                 .keep_alive(true)
-                                .serve_connection(TokioIo::new(socket), service)
+                                .serve_connection(TokioIo::new(io), service)
                                 .await;
                             active.fetch_sub(1, Ordering::AcqRel);
                         });

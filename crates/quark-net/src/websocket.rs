@@ -19,6 +19,7 @@ use crate::connection::{
 };
 use crate::framing::DEFAULT_MAX_FRAME_SIZE;
 use crate::stream::{self, BoxedIo};
+use crate::tls;
 
 const DEFAULT_TIMEOUT: u64 = 10_000;
 const DEFAULT_MAX_CONNECTIONS: usize = 1024;
@@ -195,6 +196,11 @@ fn connect(lua: &Lua, (url, options): (String, Options)) -> LuaResult<LuaAnyUser
     }
 
     let timeout = Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?);
+    let tls = if secure {
+        tls::client(&options, &host, true)?
+    } else {
+        None
+    };
     let config = config(&options)?;
     let (connection, commands) = Connection::new(close_command);
     let object = create_object(
@@ -208,8 +214,7 @@ fn connect(lua: &Lua, (url, options): (String, Options)) -> LuaResult<LuaAnyUser
 
     runtime().spawn(async move {
         let result = async {
-            let connected =
-                stream::connect(&host, port, secure.then_some(host.as_str()), timeout).await?;
+            let connected = stream::connect(&host, port, tls, timeout).await?;
             let (socket, _) = tokio::time::timeout(
                 timeout,
                 tokio_tungstenite::client_async_with_config(request, connected.io, Some(config)),
@@ -309,6 +314,7 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
     let path = options.get::<String>("Path")?;
     let max_connections = options.get_or("MaxConnections", DEFAULT_MAX_CONNECTIONS)?;
     let config = config(&options)?;
+    let acceptor = tls::server(&options)?;
 
     let listener = match bind_tcp(&host, port) {
         Ok(listener) => listener,
@@ -343,15 +349,23 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                             drop(socket);
                             continue;
                         }
-                        let _ = socket.set_nodelay(true);
                         active.fetch_add(1, Ordering::AcqRel);
                         let emitter = emitter.clone();
                         let shared = Arc::clone(&shared);
                         let active = Arc::clone(&active);
                         let path = path.clone();
+                        let acceptor = acceptor.clone();
                         runtime().spawn(async move {
                             let local = socket.local_addr().ok();
-                            let accepted = accept(Box::new(socket), path, config).await;
+                            let io = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_TIMEOUT)).await {
+                                Ok(io) => io,
+                                Err(error) => {
+                                    emitter.emit("Error", error);
+                                    active.fetch_sub(1, Ordering::AcqRel);
+                                    return;
+                                }
+                            };
+                            let accepted = accept(io, path, config).await;
                             let Ok((socket, request)) = accepted else {
                                 active.fetch_sub(1, Ordering::AcqRel);
                                 return;

@@ -69,6 +69,8 @@ rust-ini = "0.21.3"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 hickory-resolver = "0.26.3"
 ipnet = "2.12.2"
+multer = "3.1.0"
+rcgen = "0.14.10"
 tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
 tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
 webpki-roots = "1.0.11"
