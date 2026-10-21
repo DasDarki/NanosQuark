@@ -186,3 +186,206 @@ describe("Redis", function()
         Expect(Quark.Await(closed)):ToBe("closed")
     end)
 end)
+
+describe("Redis streams", function()
+    local redis
+
+    Test.BeforeAll(function()
+        redis = Redis.Connect(URL)
+    end)
+
+    Test.AfterAll(function()
+        local keys = redis:Command("KEYS", prefix .. "stream*")
+        if #keys > 0 then
+            redis:Delete(table.unpack(keys))
+        end
+        redis:Close()
+    end)
+
+    Test.It("adds, reads and trims entries", function()
+        local key = prefix .. "stream:events"
+        local first = redis:StreamAdd(key, { type = "join", player = "alice" })
+        local second = redis:StreamAdd(key, { type = "kill", player = "bob", target = "alice" })
+        Expect(first):ToMatch("^%d+%-%d+$")
+        Expect(redis:StreamLength(key)):ToBe(2)
+
+        local entries = redis:StreamRange(key)
+        Expect(#entries):ToBe(2)
+        Expect(entries[1].ID):ToBe(first)
+        Expect(entries[1].Fields):ToEqual({ type = "join", player = "alice" })
+        Expect(redis:StreamRange(key, nil, nil, { Reverse = true, Count = 1 })[1].ID):ToBe(second)
+
+        local read = redis:StreamRead({ [key] = "0" })
+        Expect(#read[key]):ToBe(2)
+        Expect(redis:StreamRead({ [key] = second })):ToBeNil()
+
+        Expect(redis:StreamAdd(prefix .. "stream:explicit", { a = 1 }, { ID = "5-1" })):ToBe("5-1")
+        Expect(redis:StreamDelete(key, first)):ToBe(1)
+        for index = 1, 20 do
+            redis:StreamAdd(key, { index = index })
+        end
+        Expect(redis:StreamTrim(key, 5)):ToBe(16)
+        Expect(redis:StreamLength(key)):ToBe(5)
+        Expect(function() redis:StreamAdd(key, {}) end):ToThrow("at least one field")
+    end)
+
+    Test.It("works with consumer groups", function()
+        local key = prefix .. "stream:jobs"
+        Expect(redis:StreamCreateGroup(key, "workers", { ID = "0" })):ToBe(true)
+        Expect(redis:StreamCreateGroup(key, "workers")):ToBe(false)
+
+        redis:StreamAdd(key, { job = "a" })
+        redis:StreamAdd(key, { job = "b" })
+        local batch = redis:StreamReadGroup("workers", "worker-1", { key }, { Count = 10 })
+        Expect(#batch[key]):ToBe(2)
+
+        local pending = redis:StreamPending(key, "workers")
+        Expect(pending.Count):ToBe(2)
+        Expect(pending.Consumers):ToEqual({ ["worker-1"] = 2 })
+        Expect(pending.First):ToBe(batch[key][1].ID)
+
+        Expect(redis:StreamAck(key, "workers", batch[key][1].ID)):ToBe(1)
+        local claimed = redis:StreamClaim(key, "workers", "worker-2", 0)
+        Expect(#claimed.Entries):ToBe(1)
+        Expect(claimed.Entries[1].Fields.job):ToBe("b")
+        Expect(redis:StreamPending(key, "workers").Consumers):ToEqual({ ["worker-2"] = 1 })
+        Expect(redis:StreamReadGroup("workers", "worker-1", { key })):ToBeNil()
+    end)
+
+    Test.It("delivers new entries to readers", function()
+        local key = prefix .. "stream:live"
+        local reader = Redis.StreamReader(URL, { Streams = { key }, Block = 200 })
+        Quark.Await(next_event(reader, "Connect"))
+        Expect(reader:IsOpen()):ToBe(true)
+
+        local received = {}
+        local all = Quark.Promise.New(function(resolve)
+            reader:Subscribe("Entry", function(stream, id, fields)
+                received[#received + 1] = { stream = stream, id = id, value = fields.value }
+                if #received == 3 then resolve() end
+            end)
+        end)
+        for index = 1, 3 do
+            redis:StreamAdd(key, { value = "v" .. index })
+        end
+        Quark.Await(all)
+        Expect(received[1].stream):ToBe(key)
+        Expect(received[1].value):ToBe("v1")
+        Expect(received[3].value):ToBe("v3")
+
+        local closed = next_event(reader, "Close")
+        reader:Close()
+        Expect(Quark.Await(closed)):ToBe("closed")
+    end)
+
+    Test.It("reads with consumer groups and acknowledges automatically", function()
+        local key = prefix .. "stream:grouped"
+        local reader = Redis.StreamReader(URL, {
+            Streams = { key },
+            Group = "handlers",
+            Consumer = "handler-1",
+            AutoAck = true,
+            Block = 200,
+        })
+        Quark.Await(next_event(reader, "Connect"))
+        local entry = next_event(reader, "Entry")
+        redis:StreamAdd(key, { task = "reward" })
+        local _, _, fields = Quark.Await(entry)
+        Expect(fields.task):ToBe("reward")
+        Quark.Await(Quark.Delay(100))
+        Expect(redis:StreamPending(key, "handlers").Count):ToBe(0)
+        reader:Close()
+        Expect(function() Redis.StreamReader(URL, { Streams = { key }, Group = "x" }) end):ToThrow("need a Consumer")
+        Expect(function() Redis.StreamReader(URL, {}) end):ToThrow("Streams option is required")
+    end)
+end)
+
+local CLUSTER = {}
+for node in (((os and os.getenv and os.getenv("QUARK_REDIS_CLUSTER")) or "redis://127.0.0.1:17000,redis://127.0.0.1:17001,redis://127.0.0.1:17002") .. ","):gmatch("([^,]+),") do
+    CLUSTER[#CLUSTER + 1] = node
+end
+local cluster_probe = Redis.Connect(CLUSTER, { Timeout = 500, Retries = 0 })
+local cluster_available = cluster_probe:Command("PING") == "PONG"
+cluster_probe:Close()
+
+local describe_cluster = cluster_available and Test.Describe or Test.DescribeSkip
+
+describe_cluster("Redis cluster", function()
+    local cluster
+
+    Test.BeforeAll(function()
+        cluster = Redis.Connect(CLUSTER)
+    end)
+
+    Test.AfterAll(function()
+        cluster:Close()
+    end)
+
+    Test.It("routes keys to the right nodes", function()
+        local slots = {}
+        for index = 1, 30 do
+            local key = prefix .. "cluster:" .. index
+            Expect(cluster:Set(key, tostring(index))):ToBe(true)
+            slots[cluster:Command("CLUSTER", "KEYSLOT", key)] = true
+        end
+        local distinct = 0
+        for _ in pairs(slots) do distinct = distinct + 1 end
+        Expect(distinct):ToBeGreaterThan(10)
+
+        for index = 1, 30 do
+            Expect(cluster:Get(prefix .. "cluster:" .. index)):ToBe(tostring(index))
+        end
+        Expect(cluster:Increment(prefix .. "cluster:counter", 5)):ToBe(5)
+        Expect(Quark.Await(cluster.Get, cluster, prefix .. "cluster:7")):ToBe("7")
+        for index = 1, 30 do
+            cluster:Delete(prefix .. "cluster:" .. index)
+        end
+        cluster:Delete(prefix .. "cluster:counter")
+    end)
+
+    Test.It("runs pipelines across nodes", function()
+        local replies = cluster:Pipeline({
+            { "SET", prefix .. "cluster:a", "1" },
+            { "SET", prefix .. "cluster:b", "2" },
+            { "GET", prefix .. "cluster:a" },
+            { "GET", prefix .. "cluster:b" },
+        })
+        Expect(replies):ToEqual({ "OK", "OK", "1", "2" })
+        cluster:Delete(prefix .. "cluster:a")
+        cluster:Delete(prefix .. "cluster:b")
+
+        local tag = "{" .. prefix .. "tx}"
+        local atomic = cluster:Pipeline({ { "SET", tag .. ":a", "1" }, { "INCR", tag .. ":a" } }, { Atomic = true })
+        Expect(atomic):ToEqual({ "OK", 2 })
+        cluster:Delete(tag .. ":a")
+        local crossed, error_message = cluster:Pipeline({ { "SET", prefix .. "x1", "1" }, { "SET", prefix .. "x2", "2" } }, { Atomic = true })
+        Expect(crossed):ToBeNil()
+        Expect(error_message):ToContain("CrossSlot")
+    end)
+
+    Test.It("uses streams with hash tags", function()
+        local key = "{" .. prefix .. "cluster}:stream"
+        local id = cluster:StreamAdd(key, { event = "start" })
+        Expect(cluster:StreamRange(key)[1].ID):ToBe(id)
+
+        local reader = Redis.StreamReader(CLUSTER, { Streams = { key }, Block = 200 })
+        Quark.Await(next_event(reader, "Connect"))
+        local entry = next_event(reader, "Entry")
+        cluster:StreamAdd(key, { event = "next" })
+        local _, _, fields = Quark.Await(entry)
+        Expect(fields.event):ToBe("next")
+        reader:Close()
+        cluster:Delete(key)
+    end)
+
+    Test.It("publishes messages across the cluster", function()
+        local subscriber = Redis.Subscriber(CLUSTER)
+        subscriber:Listen(prefix .. "cluster-news")
+        Quark.Await(next_event(subscriber, "Connect"))
+        local message = next_event(subscriber, "Message")
+        cluster:Publish(prefix .. "cluster-news", "hello cluster")
+        local _, payload = Quark.Await(message)
+        Expect(payload):ToBe("hello cluster")
+        subscriber:Close()
+    end)
+end)
