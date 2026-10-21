@@ -1,6 +1,6 @@
 [package]
 name = "quark-net"
-description = "DNS, IP utilities, TCP, UDP and WebSocket for Quark"
+description = "DNS, IP utilities, TCP, UDP, WebSocket and HTTP servers for Quark"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,12 +8,18 @@ license.workspace = true
 
 [dependencies]
 quark-core.workspace = true
-mlua.workspace = true
+mlua = { workspace = true, features = ["serde"] }
 tokio.workspace = true
 
+bytes.workspace = true
 futures-util.workspace = true
 hickory-resolver.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
 ipnet.workspace = true
+serde_json.workspace = true
 tokio-rustls.workspace = true
 tokio-tungstenite.workspace = true
+url.workspace = true
 webpki-roots.workspace = true

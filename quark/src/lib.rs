@@ -100,6 +100,11 @@ const MODULES: &[Module] = &[
         name: "WebSocket",
         build: quark_net::websocket,
     },
+    #[cfg(feature = "net")]
+    Module {
+        name: "HTTP",
+        build: quark_net::http,
+    },
     #[cfg(feature = "testing")]
     Module {
         name: "Testing",
