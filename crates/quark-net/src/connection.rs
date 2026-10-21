@@ -40,6 +40,12 @@ impl<C: Send + 'static> Connection<C> {
             .compare_exchange(CONNECTING, OPEN, Ordering::AcqRel, Ordering::Acquire);
     }
 
+    pub fn reconnecting(&self) {
+        let _ = self
+            .state
+            .compare_exchange(OPEN, CONNECTING, Ordering::AcqRel, Ordering::Acquire);
+    }
+
     pub fn closed(&self) {
         self.state.store(CLOSED, Ordering::Release);
     }

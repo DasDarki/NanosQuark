@@ -24,6 +24,7 @@ use crate::tls;
 const DEFAULT_TIMEOUT: u64 = 10_000;
 const DEFAULT_MAX_CONNECTIONS: usize = 1024;
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(2);
+const RECONNECT_POLL: Duration = Duration::from_millis(100);
 
 pub enum Command {
     Text(String),
@@ -212,43 +213,152 @@ fn connect(lua: &Lua, (url, options): (String, Options)) -> LuaResult<LuaAnyUser
     let emitter = Emitter::new(lua, &object)?;
     connection.track(lua, &emitter)?;
 
+    let reconnect = Reconnect::from_options(lua, &options)?;
     runtime().spawn(async move {
-        let result = async {
-            let connected = stream::connect(&host, port, tls, timeout).await?;
-            let (socket, _) = tokio::time::timeout(
-                timeout,
-                tokio_tungstenite::client_async_with_config(request, connected.io, Some(config)),
-            )
-            .await
-            .map_err(|_| "the WebSocket handshake timed out".to_owned())?
-            .map_err(|error| format!("the WebSocket handshake failed: {error}"))?;
-            Ok::<_, String>((socket, connected.local, connected.remote))
-        }
-        .await;
+        let mut commands = commands;
+        let mut attempt = 0;
+        let (code, reason) = loop {
+            let last =
+                match establish(&host, port, tls.clone(), timeout, request.clone(), config).await {
+                    Ok((socket, local, remote)) => {
+                        attempt = 0;
+                        connection.open(local, remote);
+                        emitter.emit("Open", ());
+                        let ending = drive(socket, &emitter, &mut commands).await;
+                        if ending.requested || reconnect.is_none() || connection.is_finished() {
+                            break (ending.code, ending.reason);
+                        }
+                        connection.reconnecting();
+                        emitter.emit("Disconnect", (ending.code, ending.reason.clone()));
+                        (ending.code, ending.reason)
+                    }
+                    Err(error) => {
+                        emitter.emit("Error", error.clone());
+                        (1006, error)
+                    }
+                };
 
-        match result {
-            Ok((socket, local, remote)) => {
-                connection.open(local, remote);
-                emitter.emit("Open", ());
-                drive(socket, connection, emitter, commands).await;
+            let Some(settings) = reconnect.as_ref() else {
+                break last;
+            };
+            if connection.is_finished() {
+                break (1000, "closed".to_owned());
             }
-            Err(error) => {
-                connection.closed();
-                emitter.emit("Error", error.clone());
-                emitter.emit("Close", (1006, error));
+            attempt += 1;
+            if settings
+                .max_attempts
+                .is_some_and(|maximum| attempt > maximum)
+            {
+                break last;
             }
-        }
+
+            let delay = settings.delay(attempt);
+            emitter.emit("Reconnect", (attempt, delay.as_millis() as u64));
+            let deadline = tokio::time::Instant::now() + delay;
+            while tokio::time::Instant::now() < deadline && !connection.is_finished() {
+                tokio::time::sleep_until(
+                    deadline.min(tokio::time::Instant::now() + RECONNECT_POLL),
+                )
+                .await;
+            }
+            if connection.is_finished() {
+                break (1000, "closed".to_owned());
+            }
+        };
+
+        connection.closed();
+        emitter.emit("Close", (code, reason));
     });
 
     Ok(object)
 }
 
+struct Ending {
+    code: u16,
+    reason: String,
+    requested: bool,
+}
+
+struct Reconnect {
+    initial_delay: f64,
+    max_delay: f64,
+    multiplier: f64,
+    max_attempts: Option<u32>,
+}
+
+impl Reconnect {
+    fn from_options(lua: &Lua, options: &Options) -> LuaResult<Option<Self>> {
+        let settings = match options.get::<LuaValue>("Reconnect")? {
+            None | Some(LuaValue::Boolean(false)) => return Ok(None),
+            Some(LuaValue::Boolean(true)) => Options::default(),
+            Some(LuaValue::Table(table)) => Options::from_lua(LuaValue::Table(table), lua)?,
+            Some(other) => {
+                return Err(LuaError::runtime(format!(
+                    "the Reconnect option has to be a boolean or a table, got {}",
+                    other.type_name()
+                )));
+            }
+        };
+        let reconnect = Reconnect {
+            initial_delay: settings.get_or("InitialDelay", 1000.0)?,
+            max_delay: settings.get_or("MaxDelay", 30_000.0)?,
+            multiplier: settings.get_or("Multiplier", 2.0)?,
+            max_attempts: settings.get("MaxAttempts")?,
+        };
+        if reconnect.initial_delay <= 0.0
+            || reconnect.max_delay < reconnect.initial_delay
+            || reconnect.multiplier < 1.0
+        {
+            return Err(LuaError::runtime(
+                "Reconnect needs InitialDelay > 0, MaxDelay >= InitialDelay and Multiplier >= 1",
+            ));
+        }
+        Ok(Some(reconnect))
+    }
+
+    fn delay(&self, attempt: u32) -> Duration {
+        let exponent = attempt.saturating_sub(1).min(64) as i32;
+        let base = (self.initial_delay * self.multiplier.powi(exponent)).min(self.max_delay);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.subsec_nanos())
+            .unwrap_or_default();
+        let jitter = 0.8 + f64::from(nanos % 400) / 1000.0;
+        Duration::from_secs_f64((base * jitter).min(self.max_delay) / 1000.0)
+    }
+}
+
+async fn establish(
+    host: &str,
+    port: u16,
+    tls: Option<tls::ClientTls>,
+    timeout: Duration,
+    request: Request,
+    config: WebSocketConfig,
+) -> Result<
+    (
+        WebSocketStream<BoxedIo>,
+        Option<std::net::SocketAddr>,
+        Option<std::net::SocketAddr>,
+    ),
+    String,
+> {
+    let connected = stream::connect(host, port, tls, timeout).await?;
+    let (socket, _) = tokio::time::timeout(
+        timeout,
+        tokio_tungstenite::client_async_with_config(request, connected.io, Some(config)),
+    )
+    .await
+    .map_err(|_| "the WebSocket handshake timed out".to_owned())?
+    .map_err(|error| format!("the WebSocket handshake failed: {error}"))?;
+    Ok((socket, connected.local, connected.remote))
+}
+
 async fn drive(
     socket: WebSocketStream<BoxedIo>,
-    connection: Arc<Connection<Command>>,
-    emitter: Emitter,
-    mut commands: UnboundedReceiver<Command>,
-) {
+    emitter: &Emitter,
+    commands: &mut UnboundedReceiver<Command>,
+) -> Ending {
     let (mut sink, mut stream) = socket.split();
     let mut closing = false;
     let mut close_deadline = tokio::time::Instant::now();
@@ -305,8 +415,11 @@ async fn drive(
         }
     };
 
-    connection.closed();
-    emitter.emit("Close", (code, reason));
+    Ending {
+        code,
+        reason,
+        requested: closing,
+    }
 }
 
 fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAnyUserData, String>> {
@@ -381,7 +494,10 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                                 clients.raw_set(&client, true)?;
 
                                 runtime().spawn(async move {
-                                    drive(socket, connection, client_emitter, commands).await;
+                                    let mut commands = commands;
+                                    let ending = drive(socket, &client_emitter, &mut commands).await;
+                                    connection.closed();
+                                    client_emitter.emit("Close", (ending.code, ending.reason));
                                     active.fetch_sub(1, Ordering::AcqRel);
                                 });
 
