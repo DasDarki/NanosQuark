@@ -55,7 +55,7 @@ impl Connected for HttpServer {
     }
 }
 
-fn http_runtime(lua: &Lua) -> LuaResult<LuaTable> {
+pub(crate) fn http_runtime(lua: &Lua) -> LuaResult<LuaTable> {
     if let Some(runtime) = lua.app_data_ref::<Runtime>() {
         return Ok(runtime.0.clone());
     }
@@ -292,6 +292,7 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     let module = lua.create_table()?;
     module.set("Listen", lua.create_function(listen)?)?;
     module.set("Cors", http_runtime(lua)?.get::<LuaFunction>("cors")?)?;
+    crate::http_client::register(lua, &module)?;
     Ok(module)
 }
 

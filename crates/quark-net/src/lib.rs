@@ -2,6 +2,7 @@ mod connection;
 mod dns;
 mod framing;
 mod http;
+mod http_client;
 mod stream;
 mod tcp;
 mod tls;

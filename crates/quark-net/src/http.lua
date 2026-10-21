@@ -21,6 +21,17 @@ function Request:GetHeader(name)
     return self.Headers[name:lower()]
 end
 
+local ClientResponse = {}
+ClientResponse.__index = ClientResponse
+
+function ClientResponse:Json()
+    return decode_json(self.Body)
+end
+
+function ClientResponse:IsSuccess()
+    return self.Status >= 200 and self.Status < 300
+end
+
 local function split(path)
     local segments = {}
     for segment in path:gmatch("[^/]+") do
@@ -195,6 +206,7 @@ local function cors(options)
 end
 
 return {
+    ClientResponse = ClientResponse,
     add_route = add_route,
     add_middleware = add_middleware,
     dispatch = dispatch,

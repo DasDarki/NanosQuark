@@ -71,14 +71,19 @@ pub fn client(options: &Options, host: &str, required: bool) -> LuaResult<Option
     }
 
     let name = options.get_or("ServerName", host.to_owned())?;
-    let server_name = ServerName::try_from(name.clone())
-        .map_err(|_| LuaError::runtime(format!("'{name}' is not a valid TLS server name")))?;
     let ca = options.get::<String>("CA")?;
-    let connector = connector(ca.as_deref()).map_err(LuaError::runtime)?;
-    Ok(Some(ClientTls {
+    client_for(&name, ca.as_deref())
+        .map(Some)
+        .map_err(LuaError::runtime)
+}
+
+pub fn client_for(name: &str, ca: Option<&str>) -> Result<ClientTls, String> {
+    let server_name = ServerName::try_from(name.to_owned())
+        .map_err(|_| format!("'{name}' is not a valid TLS server name"))?;
+    Ok(ClientTls {
         server_name,
-        connector,
-    }))
+        connector: connector(ca)?,
+    })
 }
 
 pub fn server(options: &Options) -> LuaResult<Option<TlsAcceptor>> {
