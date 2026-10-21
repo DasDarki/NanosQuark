@@ -457,3 +457,88 @@ Test.Describe("HTTP", function()
         server:Close()
     end)
 end)
+
+Test.Describe("TLS", function()
+    local certificate, private_key = Quark.Net.CreateSelfSignedCertificate({ "localhost" })
+    local server_tls = { Certificate = certificate, PrivateKey = private_key }
+    local client_tls = { TLS = true, ServerName = "localhost", CA = certificate }
+
+    local function merge(base, extra)
+        local merged = {}
+        for key, value in pairs(base) do merged[key] = value end
+        for key, value in pairs(extra or {}) do merged[key] = value end
+        return merged
+    end
+
+    Test.It("creates self signed certificates", function()
+        Expect(certificate):ToContain("BEGIN CERTIFICATE")
+        Expect(private_key):ToContain("PRIVATE KEY")
+        Expect(function() Quark.Net.CreateSelfSignedCertificate({}) end):ToThrow("at least one host name")
+    end)
+
+    Test.It("encrypts TCP connections", function()
+        local server = assert(Quark.TCP.Listen(0, { Host = "127.0.0.1", Framing = "line", TLS = server_tls }))
+        server:Subscribe("Connection", function(client)
+            client:Subscribe("Data", function(line) client:Send("secure:" .. line) end)
+        end)
+
+        local client = Quark.TCP.Connect("127.0.0.1", server:GetPort(), merge(client_tls, { Framing = "line" }))
+        Quark.Await(next_event(client, "Connect"))
+        local reply = next_event(client, "Data")
+        client:Send("hello")
+        Expect(Quark.Await(reply)):ToBe("secure:hello")
+        client:Close()
+        server:Close()
+    end)
+
+    Test.It("rejects untrusted certificates and wrong names", function()
+        local server = assert(Quark.TCP.Listen(0, { Host = "127.0.0.1", TLS = server_tls }))
+        local untrusted = Quark.TCP.Connect("127.0.0.1", server:GetPort(), { TLS = true, ServerName = "localhost" })
+        Expect(Quark.Await(next_event(untrusted, "Error"))):ToContain("TLS handshake")
+
+        local wrong_name = Quark.TCP.Connect("127.0.0.1", server:GetPort(), merge(client_tls, { ServerName = "example.com" }))
+        Expect(Quark.Await(next_event(wrong_name, "Error"))):ToContain("TLS handshake")
+        server:Close()
+    end)
+
+    Test.It("serves secure WebSockets", function()
+        local server = assert(Quark.WebSocket.Listen(0, { Host = "127.0.0.1", TLS = server_tls }))
+        server:Subscribe("Connection", function(client)
+            client:Subscribe("Message", function(data) client:Send("wss:" .. data) end)
+        end)
+
+        local client = Quark.WebSocket.Connect("wss://localhost:" .. server:GetPort(), { CA = certificate })
+        Quark.Await(next_event(client, "Open"))
+        local reply = next_event(client, "Message")
+        client:Send("ping")
+        Expect(Quark.Await(reply)):ToBe("wss:ping")
+        client:Close()
+        server:Close()
+    end)
+
+    Test.It("serves HTTPS", function()
+        local server = assert(Quark.HTTP.Listen(0, { Host = "127.0.0.1", TLS = server_tls }))
+        server:Get("/secure", function(_, response) response:Text("encrypted") end)
+
+        local client = Quark.TCP.Connect("127.0.0.1", server:GetPort(), client_tls)
+        local chunks = {}
+        client:Subscribe("Connect", function()
+            client:Send("GET /secure HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+        end)
+        client:Subscribe("Data", function(data) chunks[#chunks + 1] = data end)
+        Quark.Await(next_event(client, "Close"))
+        local raw = table.concat(chunks)
+        Expect(raw):ToMatch("^HTTP/1%.1 200")
+        Expect(raw):ToMatch("encrypted$")
+        server:Close()
+    end)
+
+    Test.It("validates TLS options", function()
+        Expect(function() Quark.TCP.Listen(0, { TLS = true }) end):ToThrow("has to be a table")
+        Expect(function() Quark.TCP.Listen(0, { TLS = { Certificate = certificate } }) end):ToThrow("needs a PrivateKey")
+        local _, other_key = Quark.Net.CreateSelfSignedCertificate("localhost")
+        Expect(function() Quark.HTTP.Listen(0, { TLS = { Certificate = certificate, PrivateKey = other_key } }) end)
+            :ToThrow("does not match the private key")
+        Expect(function() Quark.TCP.Connect("localhost", 1, { TLS = true, CA = "garbage" }) end):ToThrow("no certificate")
+    end)
+end)
