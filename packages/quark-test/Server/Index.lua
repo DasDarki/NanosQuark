@@ -4,6 +4,7 @@ Package.Require("Promise.lua")
 Package.Require("Formats.lua")
 Package.Require("Compression.lua")
 Package.Require("Net.lua")
+Package.Require("Redis.lua")
 Package.Require("Testing.lua")
 
 Quark.Testing.Run():Then(function(summary)
