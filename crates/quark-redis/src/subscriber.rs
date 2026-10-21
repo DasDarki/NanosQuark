@@ -8,7 +8,7 @@ use mlua::prelude::*;
 use quark_core::{Bytes, Emitter, Options, Resource, create_object, runtime};
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
-use crate::settings;
+use crate::connection::Endpoint;
 
 const CONNECTING: u8 = 0;
 const OPEN: u8 = 1;
@@ -130,8 +130,8 @@ fn snapshot(set: &Mutex<BTreeSet<String>>) -> Vec<String> {
         .collect()
 }
 
-pub fn create(lua: &Lua, (url, options): (Option<String>, Options)) -> LuaResult<LuaAnyUserData> {
-    let settings = settings(url, &options)?;
+pub fn create(lua: &Lua, (target, options): (LuaValue, Options)) -> LuaResult<LuaAnyUserData> {
+    let endpoint = Endpoint::from_lua(target, &options)?;
     let (commands, mut receiver) = unbounded_channel();
     let shared = Arc::new(Shared {
         state: AtomicU8::new(CONNECTING),
@@ -154,7 +154,7 @@ pub fn create(lua: &Lua, (url, options): (Option<String>, Options)) -> LuaResult
     runtime().spawn(async move {
         let mut delay = RETRY_MIN;
         let reason = loop {
-            match tokio::time::timeout(settings.timeout, settings.client.get_async_pubsub()).await {
+            match tokio::time::timeout(endpoint.timeout, endpoint.pubsub_client().get_async_pubsub()).await {
                 Ok(Ok(pubsub)) => {
                     let (mut sink, mut stream) = pubsub.split();
                     let channels = snapshot(&shared.channels);

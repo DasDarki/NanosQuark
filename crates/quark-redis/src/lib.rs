@@ -1,4 +1,6 @@
 mod client;
+mod connection;
+mod reader;
 mod reply;
 mod subscriber;
 
@@ -66,5 +68,6 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     let module = lua.create_table()?;
     module.set("Connect", lua.create_function(client::connect)?)?;
     module.set("Subscriber", lua.create_function(subscriber::create)?)?;
+    module.set("StreamReader", lua.create_function(reader::create)?)?;
     Ok(module)
 }

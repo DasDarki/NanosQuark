@@ -9,6 +9,101 @@ pub enum Convert {
     Number,
     Pairs,
     Scores,
+    Entries,
+    Streams,
+    Pending,
+    AutoClaim,
+}
+
+pub struct StreamEntry {
+    pub id: String,
+    pub fields: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
+impl IntoLua for StreamEntry {
+    fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
+        let entry = lua.create_table()?;
+        entry.set("ID", self.id)?;
+        entry.set("Fields", fields_table(lua, self.fields)?)?;
+        Ok(LuaValue::Table(entry))
+    }
+}
+
+pub fn fields_table(lua: &Lua, fields: Vec<(Vec<u8>, Vec<u8>)>) -> LuaResult<LuaTable> {
+    let table = lua.create_table()?;
+    for (field, value) in fields {
+        table.raw_set(lua.create_string(field)?, lua.create_string(value)?)?;
+    }
+    Ok(table)
+}
+
+fn bytes_of(value: Value) -> Vec<u8> {
+    match value {
+        Value::BulkString(bytes) => bytes,
+        Value::SimpleString(text) => text.into_bytes(),
+        Value::VerbatimString { text, .. } => text.into_bytes(),
+        Value::Int(number) => number.to_string().into_bytes(),
+        Value::Okay => b"OK".to_vec(),
+        _ => Vec::new(),
+    }
+}
+
+fn items(value: Value) -> Vec<Value> {
+    match value {
+        Value::Array(items) | Value::Set(items) => items,
+        Value::Map(pairs) => pairs
+            .into_iter()
+            .flat_map(|(key, value)| [key, value])
+            .collect(),
+        Value::Nil => Vec::new(),
+        other => vec![other],
+    }
+}
+
+pub fn parse_entries(value: Value) -> Vec<StreamEntry> {
+    items(value)
+        .into_iter()
+        .filter_map(|entry| {
+            let mut parts = items(entry).into_iter();
+            let id = String::from_utf8_lossy(&bytes_of(parts.next()?)).into_owned();
+            let mut flat = items(parts.next().unwrap_or(Value::Nil)).into_iter();
+            let mut fields = Vec::new();
+            while let (Some(field), Some(value)) = (flat.next(), flat.next()) {
+                fields.push((bytes_of(field), bytes_of(value)));
+            }
+            Some(StreamEntry { id, fields })
+        })
+        .collect()
+}
+
+pub fn parse_streams(value: Value) -> Vec<(String, Vec<StreamEntry>)> {
+    match value {
+        Value::Map(pairs) => pairs
+            .into_iter()
+            .map(|(name, entries)| {
+                (
+                    String::from_utf8_lossy(&bytes_of(name)).into_owned(),
+                    parse_entries(entries),
+                )
+            })
+            .collect(),
+        other => items(other)
+            .into_iter()
+            .filter_map(|stream| {
+                let mut parts = items(stream).into_iter();
+                let name = String::from_utf8_lossy(&bytes_of(parts.next()?)).into_owned();
+                Some((name, parse_entries(parts.next().unwrap_or(Value::Nil))))
+            })
+            .collect(),
+    }
+}
+
+fn entries_table(lua: &Lua, entries: Vec<StreamEntry>) -> LuaResult<LuaTable> {
+    let list = lua.create_table()?;
+    for entry in entries {
+        list.raw_push(entry)?;
+    }
+    Ok(list)
 }
 
 pub struct Reply {
@@ -56,6 +151,62 @@ impl IntoLua for Reply {
                 }
                 other => convert(lua, other),
             },
+            Convert::Entries => Ok(LuaValue::Table(entries_table(
+                lua,
+                parse_entries(self.value),
+            )?)),
+            Convert::Streams => {
+                if matches!(self.value, Value::Nil) {
+                    return Ok(LuaNil);
+                }
+                let table = lua.create_table()?;
+                for (name, entries) in parse_streams(self.value) {
+                    table.raw_set(name, entries_table(lua, entries)?)?;
+                }
+                Ok(LuaValue::Table(table))
+            }
+            Convert::Pending => {
+                let mut parts = items(self.value).into_iter();
+                let summary = lua.create_table()?;
+                summary.set(
+                    "Count",
+                    match parts.next() {
+                        Some(Value::Int(count)) => count,
+                        _ => 0,
+                    },
+                )?;
+                let id = |value: Option<Value>| match value {
+                    Some(Value::Nil) | None => None,
+                    Some(value) => Some(String::from_utf8_lossy(&bytes_of(value)).into_owned()),
+                };
+                summary.set("First", id(parts.next()))?;
+                summary.set("Last", id(parts.next()))?;
+                let consumers = lua.create_table()?;
+                for consumer in items(parts.next().unwrap_or(Value::Nil)) {
+                    let mut pair = items(consumer).into_iter();
+                    if let (Some(name), Some(count)) = (pair.next(), pair.next()) {
+                        let count = String::from_utf8_lossy(&bytes_of(count))
+                            .parse::<i64>()
+                            .unwrap_or_default();
+                        consumers.raw_set(lua.create_string(bytes_of(name))?, count)?;
+                    }
+                }
+                summary.set("Consumers", consumers)?;
+                Ok(LuaValue::Table(summary))
+            }
+            Convert::AutoClaim => {
+                let mut parts = items(self.value).into_iter();
+                let next = parts
+                    .next()
+                    .map(|value| String::from_utf8_lossy(&bytes_of(value)).into_owned());
+                let result = lua.create_table()?;
+                result.set(
+                    "Entries",
+                    entries_table(lua, parse_entries(parts.next().unwrap_or(Value::Nil)))?,
+                )?;
+                result.set("Next", next)?;
+                Ok(LuaValue::Table(result))
+            }
             Convert::Scores => match self.value {
                 Value::Array(items) => {
                     let list = lua.create_table()?;
