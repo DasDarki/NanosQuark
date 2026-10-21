@@ -752,3 +752,155 @@ Test.Describe("WebSocket reconnect", function()
         Expect(function() WebSocket.Connect("ws://127.0.0.1:1", { Reconnect = "always" }) end):ToThrow("boolean or a table")
     end)
 end)
+
+Test.Describe("HTTP server features", function()
+    local HTTP = Quark.HTTP
+
+    local function base(server)
+        return "http://127.0.0.1:" .. server:GetPort()
+    end
+
+    Test.It("reads and writes cookies", function()
+        local server = assert(HTTP.Listen(0, { Host = "127.0.0.1" }))
+        server:Get("/login", function(_, response)
+            response:Cookie("session", "abc 123", { MaxAge = 3600 })
+            response:Cookie("theme", "dark", { HttpOnly = false, SameSite = "Strict", Secure = true })
+            response:Text("ok")
+        end)
+        server:Get("/me", function(request, response)
+            response:Json({ session = request.Cookies.session, theme = request.Cookies.theme })
+        end)
+        server:Get("/logout", function(_, response)
+            response:ClearCookie("session"):Text("bye")
+        end)
+        server:Get("/insecure", function(_, response)
+            local ok, reason = pcall(response.Cookie, response, "x", "y", { SameSite = "None" })
+            response:Text(ok and "accepted" or reason)
+        end)
+
+        local login = Quark.Await(HTTP.Get, base(server) .. "/login")
+        local cookies = login.Headers["set-cookie"]
+        Expect(cookies):ToContain("session=abc%20123; Path=/; Max-Age=3600; SameSite=Lax; HttpOnly")
+        Expect(cookies):ToContain("theme=dark; Path=/; SameSite=Strict; Secure")
+
+        local me = Quark.Await(HTTP.Get, base(server) .. "/me", { Headers = { Cookie = "session=abc%20123; theme=dark" } })
+        Expect(me:Json()):ToEqual({ session = "abc 123", theme = "dark" })
+
+        Expect(Quark.Await(HTTP.Get, base(server) .. "/logout").Headers["set-cookie"]):ToContain("session=; Path=/; Max-Age=0")
+        Expect(Quark.Await(HTTP.Get, base(server) .. "/insecure").Body):ToContain("have to be Secure")
+        server:Close()
+    end)
+
+    Test.It("parses url encoded and multipart forms", function()
+        local server = assert(HTTP.Listen(0, { Host = "127.0.0.1" }))
+        server:Post("/form", function(request, response)
+            local fields, files = request:Form()
+            if not fields then
+                return response:Json({ error = files }, 400)
+            end
+            local uploaded = {}
+            for _, file in ipairs(files) do
+                uploaded[#uploaded + 1] = { field = file.Field, name = file.FileName, type = file.ContentType, size = #file.Data }
+            end
+            response:Json({ fields = fields, files = uploaded })
+        end)
+
+        local encoded = Quark.Await(HTTP.Post, base(server) .. "/form", "name=alice&level=5&note=a+b%21", {
+            Headers = { ["Content-Type"] = "application/x-www-form-urlencoded" },
+        })
+        Expect(encoded:Json().fields):ToEqual({ name = "alice", level = "5", note = "a b!" })
+
+        local boundary = "quarkboundary"
+        local body = table.concat({
+            "--" .. boundary,
+            'Content-Disposition: form-data; name="title"',
+            "",
+            "screenshot",
+            "--" .. boundary,
+            'Content-Disposition: form-data; name="image"; filename="shot.png"',
+            "Content-Type: image/png",
+            "",
+            "\137PNG\0\1\2",
+            "--" .. boundary .. "--",
+            "",
+        }, "\r\n")
+        local multipart = Quark.Await(HTTP.Post, base(server) .. "/form", body, {
+            Headers = { ["Content-Type"] = "multipart/form-data; boundary=" .. boundary },
+        })
+        Expect(multipart:Json()):ToEqual({
+            fields = { title = "screenshot" },
+            files = { { field = "image", name = "shot.png", type = "image/png", size = 7 } },
+        })
+
+        local unsupported = Quark.Await(HTTP.Post, base(server) .. "/form", "{}", { Headers = { ["Content-Type"] = "application/json" } })
+        Expect(unsupported.Status):ToBe(400)
+        Expect(unsupported:Json().error):ToContain("unsupported form content type")
+        server:Close()
+    end)
+
+    local with_files = (io and io.open and os and os.remove and os.execute) and Test.It or Test.Skip
+
+    with_files("serves static files safely", function()
+        local directory = "quark-static-test"
+        os.execute("mkdir -p " .. directory .. "/js")
+        local function write(path, content)
+            local file = assert(io.open(directory .. "/" .. path, "wb"))
+            file:write(content)
+            file:close()
+        end
+        write("index.html", "<h1>Quark</h1>")
+        write("js/app.js", "console.log(1)")
+
+        local server = assert(HTTP.Listen(0, { Host = "127.0.0.1" }))
+        server:Static("/assets", directory, { MaxAge = 60 })
+
+        local index = Quark.Await(HTTP.Get, base(server) .. "/assets/")
+        Expect(index.Body):ToBe("<h1>Quark</h1>")
+        Expect(index.Headers["content-type"]):ToBe("text/html; charset=utf-8")
+        Expect(index.Headers["cache-control"]):ToBe("public, max-age=60")
+
+        local script = Quark.Await(HTTP.Get, base(server) .. "/assets/js/app.js")
+        Expect(script.Headers["content-type"]):ToBe("text/javascript; charset=utf-8")
+        Expect(script.Body):ToBe("console.log(1)")
+
+        Expect(Quark.Await(HTTP.Get, base(server) .. "/assets/missing.txt").Status):ToBe(404)
+        Expect(Quark.Await(HTTP.Get, base(server) .. "/assets/%2e%2e/Cargo.toml").Status):ToBe(404)
+        Expect(Quark.Await(HTTP.Get, base(server) .. "/assets/js/..%2f..%2fCargo.toml").Status):ToBe(404)
+        server:Close()
+
+        os.remove(directory .. "/js/app.js")
+        os.remove(directory .. "/js")
+        os.remove(directory .. "/index.html")
+        os.remove(directory)
+        Expect(function() server:Static("assets", directory) end):ToThrow("have to start with /")
+    end)
+
+    Test.It("upgrades WebSocket routes behind middleware", function()
+        local server = assert(HTTP.Listen(0, { Host = "127.0.0.1" }))
+        server:Use(function(request, response, next)
+            if request.IsWebSocket and request.Query.token ~= "letmein" then
+                return response:Text("Unauthorized", 401)
+            end
+            next()
+        end)
+        server:WebSocket("/live/:room", function(socket, request)
+            socket:Send("joined " .. request.Params.room)
+            socket:Subscribe("Message", function(data) socket:Send("echo " .. data) end)
+        end)
+        server:Get("/live/:room", function(_, response) response:Text("use a WebSocket") end)
+
+        local url = "ws://127.0.0.1:" .. server:GetPort() .. "/live/lobby"
+        local client = Quark.WebSocket.Connect(url .. "?token=letmein")
+        local messages = collect(client, "Message", 2)
+        Quark.Await(next_event(client, "Open"))
+        client:Send("hi")
+        Expect(Quark.Await(messages)):ToEqual({ "joined lobby", "echo hi" })
+
+        local rejected = Quark.WebSocket.Connect(url .. "?token=wrong")
+        Expect(Quark.Await(next_event(rejected, "Error"))):ToContain("401")
+
+        Expect(Quark.Await(HTTP.Get, base(server) .. "/live/lobby").Body):ToBe("use a WebSocket")
+        client:Close()
+        server:Close()
+    end)
+end)
