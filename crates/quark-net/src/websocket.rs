@@ -422,6 +422,36 @@ async fn drive(
     }
 }
 
+pub(crate) fn adopt(
+    lua: &Lua,
+    socket: WebSocketStream<BoxedIo>,
+    remote: Option<std::net::SocketAddr>,
+) -> LuaResult<LuaAnyUserData> {
+    let (connection, commands) = Connection::new(close_command);
+    connection.open(None, remote);
+    let object = create_object(
+        lua,
+        WebSocket {
+            connection: Arc::clone(&connection),
+        },
+    )?;
+    let emitter = Emitter::new(lua, &object)?;
+    connection.track(lua, &emitter)?;
+    runtime().spawn(async move {
+        let mut commands = commands;
+        let ending = drive(socket, &emitter, &mut commands).await;
+        connection.closed();
+        emitter.emit("Close", (ending.code, ending.reason));
+    });
+    Ok(object)
+}
+
+pub(crate) fn server_config(max_message_size: usize) -> WebSocketConfig {
+    WebSocketConfig::default()
+        .max_message_size(Some(max_message_size))
+        .max_frame_size(Some(max_message_size))
+}
+
 fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAnyUserData, String>> {
     let host = options.get_or("Host", "0.0.0.0".to_owned())?;
     let path = options.get::<String>("Path")?;

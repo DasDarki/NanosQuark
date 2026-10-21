@@ -2311,6 +2311,7 @@ dependencies = [
  "ipnet",
  "mlua",
  "multer",
+ "percent-encoding",
  "quark-core",
  "rcgen",
  "serde_json",

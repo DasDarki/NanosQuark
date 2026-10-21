@@ -1,4 +1,4 @@
-local Promise, report, decode_component, decode_json = ...
+local Promise, report, decode_component, decode_json, parse_form, resolve_static = ...
 
 local concat = table.concat
 local error = error
@@ -8,13 +8,17 @@ local string_upper = string.upper
 local tostring = tostring
 local type = type
 
-local METHODS = { GET = true, POST = true, PUT = true, PATCH = true, DELETE = true, HEAD = true, OPTIONS = true }
+local METHODS = { GET = true, POST = true, PUT = true, PATCH = true, DELETE = true, HEAD = true, OPTIONS = true, WEBSOCKET = true }
 
 local Request = {}
 Request.__index = Request
 
 function Request:Json()
     return decode_json(self.Body)
+end
+
+function Request:Form()
+    return parse_form(self.Body, self.Headers["content-type"])
 end
 
 function Request:GetHeader(name)
@@ -100,24 +104,35 @@ local function add_middleware(state, middleware)
     state.middleware[#state.middleware + 1] = middleware
 end
 
+local function search(state, path, method)
+    local allowed = {}
+    for _, route in ipairs(state.routes) do
+        local params = match(route.segments, path)
+        if params then
+            if route.method == method or (route.method == "*" and method ~= "WEBSOCKET") or (method == "HEAD" and route.method == "GET") then
+                return route, params, nil
+            end
+            if route.method ~= "WEBSOCKET" then
+                allowed[#allowed + 1] = route.method
+            end
+        end
+    end
+    return nil, nil, allowed
+end
+
 local function find_route(state, request)
     local path = split(request.Path)
     for index = 1, #path do
         path[index] = decode_component(path[index])
     end
 
-    local allowed = {}
-    for _, route in ipairs(state.routes) do
-        local params = match(route.segments, path)
-        if params then
-            local method = request.Method
-            if route.method == "*" or route.method == method or (method == "HEAD" and route.method == "GET") then
-                return route, params, nil
-            end
-            allowed[#allowed + 1] = route.method
+    if request.IsWebSocket then
+        local route, params = search(state, path, "WEBSOCKET")
+        if route then
+            return route, params, nil
         end
     end
-    return nil, nil, allowed
+    return search(state, path, request.Method)
 end
 
 local function dispatch(state, request, response)
@@ -134,6 +149,9 @@ local function dispatch(state, request, response)
             local middleware = state.middleware[index]
             if middleware then
                 return middleware(request, response, next_handler)
+            end
+            if route and route.method == "WEBSOCKET" then
+                return response:Upgrade(route.handler, request)
             end
             if route then
                 return route.handler(request, response)
@@ -155,6 +173,32 @@ local function dispatch(state, request, response)
         if not response:IsSent() then
             response:Text("Internal Server Error", 500)
         end
+    end)
+end
+
+local function add_static(state, prefix, directory, options)
+    options = options or {}
+    if type(prefix) ~= "string" or prefix:sub(1, 1) ~= "/" then
+        error("static prefixes have to start with /", 3)
+    end
+    if type(directory) ~= "string" or directory == "" then
+        error("static files need a directory", 3)
+    end
+    local index = options.Index or "index.html"
+
+    add_route(state, "GET", prefix:gsub("/+$", "") .. "/*", function(request, response)
+        local path = resolve_static(directory, request.Params["*"] or "", index)
+        if not path then
+            return response:Text("Not Found", 404)
+        end
+        return response:SendFile(path, options)
+    end)
+end
+
+local function accept_websocket(handler, socket, request)
+    setmetatable(request, Request)
+    Promise.Async(handler, socket, request):Catch(function(reason)
+        report("the WebSocket handler for " .. request.Path .. " failed: " .. tostring(reason))
     end)
 end
 
@@ -207,6 +251,8 @@ end
 
 return {
     ClientResponse = ClientResponse,
+    accept_websocket = accept_websocket,
+    add_static = add_static,
     add_route = add_route,
     add_middleware = add_middleware,
     dispatch = dispatch,

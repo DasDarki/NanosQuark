@@ -17,7 +17,7 @@ quark-net = { path = "crates/quark-net" }
 quark-testing = { path = "crates/quark-testing" }
 
 mlua = { version = "0.12.2", features = ["lua54", "module"] }
-tokio = { version = "1.54.1", features = ["rt-multi-thread", "time", "net", "io-util", "sync", "macros"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "time", "net", "io-util", "sync", "macros", "fs"] }
 
 aes-gcm = "0.11.1"
 argon2 = "0.6.0"
