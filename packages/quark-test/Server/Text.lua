@@ -148,6 +148,7 @@ Test.Describe("Text.WordFilter", function()
         Expect(filter:Contains("this is a B4DW0RD")):ToBe(true)
         Expect(filter:Contains("baaaadwooord!")):ToBe(true)
         Expect(filter:Contains("an EVIL   thing")):ToBe(true)
+        Expect(filter:Contains("evil, thing")):ToBe(true)
         Expect(filter:Contains("badwordy")):ToBe(false)
         Expect(filter:Contains("all good")):ToBe(false)
 

@@ -120,13 +120,16 @@ Lua code cannot run on worker threads, so heavy computation means native algorit
 
 ## Text and time
 
-- [ ] Regex (match, captures, replace, split)
-- [ ] Fuzzy matching: Levenshtein, Jaro-Winkler, for command suggestions and player name search
-- [ ] Unicode aware upper / lower case, normalization, slugify, truncation by grapheme
-- [ ] Templating (MiniJinja) for messages, emails, generated files
-- [ ] Profanity filter with configurable word lists
-- [ ] Date and time: ISO 8601 parsing and formatting, time zones, durations, high resolution monotonic clock
-- [ ] Cron expressions: `Time.Schedule("0 */6 * * *", callback)`
+- [x] Regex (match, captures, named groups, replace with templates and functions, split), linear time so player input is safe
+- [x] Fuzzy matching: Levenshtein, Damerau-Levenshtein, Jaro-Winkler, `FuzzyFind` and `Closest` for command suggestions and player name search
+- [x] Unicode aware upper / lower case, normalization, transliteration, slugify, grapheme based length, sub, truncate, pad and wrap
+- [x] Templating (MiniJinja) with inheritance, auto escaping and fuel limits
+- [x] Word filter with leetspeak, accents, repeated letters and whole word matching
+- [x] Date and time: ISO 8601 and RFC 2822 parsing, strftime, time zones with bundled database, calendar arithmetic, relative times
+- [x] Durations: parsing (`"1h 30m"`, ISO 8601) and formatting
+- [x] Cron expressions and `Time.Schedule("0 */6 * * *", callback)` with time zones and daylight saving handling
+- [ ] Custom template filters and functions written in Lua
+- [ ] Localized date formatting (month and weekday names in other languages)
 
 ## Server utilities
 
