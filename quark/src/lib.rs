@@ -125,6 +125,11 @@ const MODULES: &[Module] = &[
         name: "Template",
         build: quark_text::template,
     },
+    #[cfg(feature = "time")]
+    Module {
+        name: "Time",
+        build: quark_time::build,
+    },
     #[cfg(feature = "redis")]
     Module {
         name: "Redis",
