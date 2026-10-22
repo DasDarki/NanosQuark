@@ -47,13 +47,16 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 
 ## Random
 
-- [ ] Fast seeded generators (PCG, Xoshiro256++) as userdata: `local rng = Random.New(seed)`, reproducible across platforms
-- [ ] Integer and float ranges, booleans with probability, shuffle, sample without replacement
-- [ ] Distributions: normal, exponential, Poisson, triangular
-- [ ] Weighted picker using the alias method, O(1) per pick: `Random.WeightedPicker({ common = 70, rare = 25, epic = 5 })`
-- [ ] Loot tables with nested tables, guaranteed drops and pity counters
-- [ ] Dice notation: `Random.Roll("2d6+3")`
-- [ ] Noise: Perlin, Simplex, OpenSimplex2, fractal (fBm), single value and bulk into a `Quark.Buffer`
+- [x] Fast seeded Xoshiro256++ generators as userdata: `local rng = Random.New(seed)`, reproducible across platforms, integer and string seeds, saveable state
+- [x] Integer and float ranges, booleans with probability, pick, shuffle, sample without replacement
+- [x] Distributions: normal, exponential, Poisson, triangular
+- [x] Geometry: points inside circles and spheres, on spheres
+- [x] Weighted picker using the alias method, O(1) per pick: `Random.WeightedPicker({ common = 70, rare = 25, epic = 5 })`
+- [x] Loot tables with nested tables, guaranteed drops and pity counters
+- [x] Dice notation: `Random.Roll("2d6+3")`, keep highest and lowest
+- [x] Noise: Perlin, OpenSimplex2, Cellular, Value, fractals, single values and bulk into a `Quark.Buffer`
+- [ ] Domain warping for noise
+- [ ] Poisson disk sampling for evenly spread positions
 
 ## Net
 

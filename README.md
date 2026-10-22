@@ -44,6 +44,7 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | `URL` | [docs/formats.md](docs/formats.md#url): percent encoding, query strings, parsing |
 | `Compression`, `Zip`, `Tar` | [docs/compression.md](docs/compression.md): LZ4, Zstandard, Gzip, Deflate, Zlib, Brotli and archives in memory |
 | `Net`, `TCP`, `UDP`, `WebSocket`, `HTTP` | [docs/net.md](docs/net.md): DNS, IP ranges, TCP and UDP sockets, WebSocket clients and servers, HTTP servers with routing, async handlers, WebSocket routes and static files, HTTP client, TLS for clients and servers |
+| `Random` | [docs/random.md](docs/random.md): seeded generators, distributions, weighted picking, loot tables with pity, dice and noise |
 | `Redis` | [docs/redis.md](docs/redis.md): Redis client with commands, pipelines, transactions, pub/sub, streams and cluster support |
 | `Testing` | [docs/testing.md](docs/testing.md): unit tests with async support, expectations, spies and mocks |
 
