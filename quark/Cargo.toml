@@ -21,10 +21,11 @@ quark-random = { workspace = true, optional = true }
 quark-redis = { workspace = true, optional = true }
 quark-text = { workspace = true, optional = true }
 quark-time = { workspace = true, optional = true }
+quark-utilities = { workspace = true, optional = true }
 quark-testing = { workspace = true, optional = true }
 
 [features]
-default = ["compression", "crypto", "formats", "net", "random", "redis", "testing", "text", "time"]
+default = ["compression", "crypto", "formats", "net", "random", "redis", "testing", "text", "time", "utilities"]
 compression = ["dep:quark-compression"]
 crypto = ["dep:quark-crypto"]
 formats = ["dep:quark-formats"]
@@ -34,3 +35,4 @@ redis = ["dep:quark-redis"]
 testing = ["dep:quark-testing"]
 text = ["dep:quark-text"]
 time = ["dep:quark-time"]
+utilities = ["dep:quark-utilities"]

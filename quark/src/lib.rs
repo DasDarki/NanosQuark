@@ -130,6 +130,41 @@ const MODULES: &[Module] = &[
         name: "Time",
         build: quark_time::build,
     },
+    #[cfg(feature = "utilities")]
+    Module {
+        name: "RateLimit",
+        build: quark_utilities::rate_limit,
+    },
+    #[cfg(feature = "utilities")]
+    Module {
+        name: "Cache",
+        build: quark_utilities::cache,
+    },
+    #[cfg(feature = "utilities")]
+    Module {
+        name: "PriorityQueue",
+        build: quark_utilities::priority_queue,
+    },
+    #[cfg(feature = "utilities")]
+    Module {
+        name: "RingBuffer",
+        build: quark_utilities::ring_buffer,
+    },
+    #[cfg(feature = "utilities")]
+    Module {
+        name: "Bitset",
+        build: quark_utilities::bitset,
+    },
+    #[cfg(feature = "utilities")]
+    Module {
+        name: "Metrics",
+        build: quark_utilities::metrics,
+    },
+    #[cfg(feature = "utilities")]
+    Module {
+        name: "Log",
+        build: quark_utilities::log,
+    },
     #[cfg(feature = "redis")]
     Module {
         name: "Redis",

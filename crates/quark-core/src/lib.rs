@@ -10,7 +10,7 @@ mod runtime;
 mod task;
 mod values;
 
-pub use buffer::{Binary, Buffer, build as buffer};
+pub use buffer::{Binary, Buffer, build as buffer, package_base as index_base};
 pub use dispatcher::{Dispatcher, Resource, package_environment, report_error};
 pub use events::{Emitter, add_event_methods, create_object, emit_now, object_state};
 pub use library::pin_library;

@@ -345,7 +345,7 @@ fn index_bases(lua: &Lua) -> LuaResult<LuaTable> {
     Ok(bases)
 }
 
-fn package_base(lua: &Lua) -> LuaResult<i64> {
+pub fn package_base(lua: &Lua) -> LuaResult<i64> {
     let Some(environment) = package_environment(lua) else {
         return Ok(0);
     };

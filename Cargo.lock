@@ -2441,6 +2441,7 @@ dependencies = [
  "quark-testing",
  "quark-text",
  "quark-time",
+ "quark-utilities",
 ]
 
 [[package]]
@@ -2599,6 +2600,16 @@ dependencies = [
  "mlua",
  "quark-core",
  "tokio",
+]
+
+[[package]]
+name = "quark-utilities"
+version = "0.1.0"
+dependencies = [
+ "jiff",
+ "mlua",
+ "quark-core",
+ "serde_json",
 ]
 
 [[package]]

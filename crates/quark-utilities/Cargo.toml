@@ -1,0 +1,14 @@
+[package]
+name = "quark-utilities"
+description = "Rate limiting, caches, data structures, metrics and logging for Quark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+quark-core.workspace = true
+mlua = { workspace = true, features = ["serde"] }
+
+jiff.workspace = true
+serde_json.workspace = true
