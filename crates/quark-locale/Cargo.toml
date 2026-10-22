@@ -1,0 +1,16 @@
+[package]
+name = "quark-locale"
+description = "Localization with Fluent, plural rules and language negotiation for Quark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+quark-core.workspace = true
+mlua.workspace = true
+
+fluent-bundle.workspace = true
+fluent-langneg.workspace = true
+intl_pluralrules.workspace = true
+unic-langid.workspace = true

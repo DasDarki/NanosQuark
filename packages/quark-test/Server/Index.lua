@@ -9,6 +9,7 @@ Package.Require("Random.lua")
 Package.Require("Text.lua")
 Package.Require("Time.lua")
 Package.Require("Utilities.lua")
+Package.Require("Locale.lua")
 Package.Require("Testing.lua")
 
 Quark.Testing.Run():Then(function(summary)

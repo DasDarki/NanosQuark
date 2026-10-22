@@ -130,6 +130,11 @@ const MODULES: &[Module] = &[
         name: "Time",
         build: quark_time::build,
     },
+    #[cfg(feature = "locale")]
+    Module {
+        name: "Locale",
+        build: quark_locale::build,
+    },
     #[cfg(feature = "utilities")]
     Module {
         name: "RateLimit",

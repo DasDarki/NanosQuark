@@ -13,6 +13,7 @@ quark-core = { path = "crates/quark-core" }
 quark-compression = { path = "crates/quark-compression" }
 quark-crypto = { path = "crates/quark-crypto" }
 quark-formats = { path = "crates/quark-formats" }
+quark-locale = { path = "crates/quark-locale" }
 quark-net = { path = "crates/quark-net" }
 quark-random = { path = "crates/quark-random" }
 quark-redis = { path = "crates/quark-redis" }
@@ -94,6 +95,10 @@ windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Syste
 
 aho-corasick = "1.1.5"
 deunicode = "1.6.2"
+fluent-bundle = "0.16.0"
+fluent-langneg = "0.14.2"
+intl_pluralrules = "7.0.2"
+unic-langid = "0.9.6"
 jiff = { version = "0.2.38", features = ["tzdb-bundle-always"] }
 minijinja = { version = "3.0.3", features = ["serde", "json", "loop_controls", "fuel", "urlencode"] }
 regex = "1.13.1"
