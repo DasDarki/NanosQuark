@@ -133,11 +133,13 @@ Lua code cannot run on worker threads, so heavy computation means native algorit
 
 ## Server utilities
 
-- [ ] Rate limiting: token bucket and sliding window per key, against spam and abuse
-- [ ] LRU / TTL cache
-- [ ] Data structures with native performance: priority queue, ring buffer, bitset
-- [ ] Prometheus metrics endpoint and structured logging
-- [ ] Localization: plural rules and message formatting (Fluent)
+- [x] Rate limiting: token bucket and sliding window per key, against spam and abuse
+- [x] LRU / TTL cache with `GetOrSet`, eviction callbacks and memoization
+- [x] Data structures: priority queue, ring buffer, native bitset
+- [x] Prometheus metrics (counters, gauges, histograms, collectors) exposed through the HTTP server
+- [x] Structured logging with text and JSON output, child loggers and rotating files
+- [x] Localization: Fluent messages, plural rules and language negotiation
+- [ ] Shared rate limits and caches across servers backed by Redis
 - [x] Buffers: create, read, write, slice, and copy operations for binary data
 - [x] Converting numbers and strings to binary representations and back
 
