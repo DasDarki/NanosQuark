@@ -16,6 +16,7 @@ quark-formats = { path = "crates/quark-formats" }
 quark-net = { path = "crates/quark-net" }
 quark-random = { path = "crates/quark-random" }
 quark-redis = { path = "crates/quark-redis" }
+quark-text = { path = "crates/quark-text" }
 quark-testing = { path = "crates/quark-testing" }
 
 mlua = { version = "0.12.2", features = ["lua54", "module"] }
@@ -88,6 +89,14 @@ fastnoise-lite = "1.1.1"
 
 libc = "0.2"
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }
+
+aho-corasick = "1.1.5"
+deunicode = "1.6.2"
+minijinja = { version = "3.0.3", features = ["serde", "json", "loop_controls", "fuel", "urlencode"] }
+regex = "1.13.1"
+strsim = "0.11.1"
+unicode-normalization = "0.1.26"
+unicode-segmentation = "1.13.3"
 
 [profile.release]
 lto = "thin"

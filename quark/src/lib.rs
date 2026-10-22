@@ -110,6 +110,21 @@ const MODULES: &[Module] = &[
         name: "Random",
         build: quark_random::build,
     },
+    #[cfg(feature = "text")]
+    Module {
+        name: "Regex",
+        build: quark_text::regex,
+    },
+    #[cfg(feature = "text")]
+    Module {
+        name: "Text",
+        build: quark_text::text,
+    },
+    #[cfg(feature = "text")]
+    Module {
+        name: "Template",
+        build: quark_text::template,
+    },
     #[cfg(feature = "redis")]
     Module {
         name: "Redis",
