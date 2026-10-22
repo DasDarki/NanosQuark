@@ -11,7 +11,13 @@ fn graphemes(text: &str) -> Vec<&str> {
 
 fn grapheme_range(length: usize, start: i64, end: Option<i64>) -> (usize, usize) {
     let length = length as i64;
-    let resolve = |position: i64| if position < 0 { length + position + 1 } else { position };
+    let resolve = |position: i64| {
+        if position < 0 {
+            length + position + 1
+        } else {
+            position
+        }
+    };
     let start = resolve(start).max(1);
     let end = resolve(end.unwrap_or(-1)).min(length);
     if start > end {
@@ -54,12 +60,23 @@ fn fuzzy_score(query: &str, candidate: &str) -> f64 {
     0.79 * jaro.max(edits)
 }
 
-fn fuzzy_find(lua: &Lua, query: &str, candidates: &LuaTable, options: &Options) -> LuaResult<LuaTable> {
+fn fuzzy_find(
+    lua: &Lua,
+    query: &str,
+    candidates: &LuaTable,
+    options: &Options,
+) -> LuaResult<LuaTable> {
     let threshold: f64 = options.get_or("Threshold", DEFAULT_THRESHOLD)?;
     let limit: Option<usize> = options.get("Limit")?;
     let key: Option<String> = options.get("Key")?;
     let case_sensitive: bool = options.get_or("CaseSensitive", false)?;
-    let prepare = |text: &str| if case_sensitive { text.to_owned() } else { text.to_lowercase() };
+    let prepare = |text: &str| {
+        if case_sensitive {
+            text.to_owned()
+        } else {
+            text.to_lowercase()
+        }
+    };
     let query = prepare(query);
 
     let mut results = Vec::new();
@@ -69,7 +86,9 @@ fn fuzzy_find(lua: &Lua, query: &str, candidates: &LuaTable, options: &Options) 
             (LuaValue::Table(table), Some(key)) => table.get::<Option<String>>(key.as_str())?,
             (LuaValue::String(text), _) => Some(text.to_str()?.to_owned()),
             (LuaValue::Table(_), None) => {
-                return Err(LuaError::runtime("tables can only be searched with the Key option"));
+                return Err(LuaError::runtime(
+                    "tables can only be searched with the Key option",
+                ));
             }
             _ => None,
         };
@@ -181,7 +200,9 @@ fn split(lua: &Lua, text: &str, separator: &str, options: &Options) -> LuaResult
 fn pad(text: &str, width: usize, options: &Options) -> LuaResult<String> {
     let fill: String = options.get_or("Char", " ".to_owned())?;
     if display_width(&fill) != 1 {
-        return Err(LuaError::runtime("the padding Char has to be a single character"));
+        return Err(LuaError::runtime(
+            "the padding Char has to be a single character",
+        ));
     }
     let align: String = options.get_or("Align", "Left".to_owned())?;
     let missing = width.saturating_sub(display_width(text));
@@ -190,7 +211,9 @@ fn pad(text: &str, width: usize, options: &Options) -> LuaResult<String> {
         "Right" => (missing, 0),
         "Center" => (missing / 2, missing - missing / 2),
         other => {
-            return Err(LuaError::runtime(format!("unknown alignment '{other}', expected Left, Right or Center")));
+            return Err(LuaError::runtime(format!(
+                "unknown alignment '{other}', expected Left, Right or Center"
+            )));
         }
     };
     Ok(format!("{}{text}{}", fill.repeat(left), fill.repeat(right)))
@@ -214,9 +237,18 @@ fn capitalize(text: &str) -> String {
 pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     let module = lua.create_table()?;
 
-    module.set("Upper", lua.create_function(|_, text: String| Ok(text.to_uppercase()))?)?;
-    module.set("Lower", lua.create_function(|_, text: String| Ok(text.to_lowercase()))?)?;
-    module.set("Capitalize", lua.create_function(|_, text: String| Ok(capitalize(&text)))?)?;
+    module.set(
+        "Upper",
+        lua.create_function(|_, text: String| Ok(text.to_uppercase()))?,
+    )?;
+    module.set(
+        "Lower",
+        lua.create_function(|_, text: String| Ok(text.to_lowercase()))?,
+    )?;
+    module.set(
+        "Capitalize",
+        lua.create_function(|_, text: String| Ok(capitalize(&text)))?,
+    )?;
     module.set(
         "Normalize",
         lua.create_function(|_, (text, form): (String, Option<String>)| {
@@ -233,7 +265,10 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
             })
         })?,
     )?;
-    module.set("ToAscii", lua.create_function(|_, text: String| Ok(deunicode::deunicode(&text)))?)?;
+    module.set(
+        "ToAscii",
+        lua.create_function(|_, text: String| Ok(deunicode::deunicode(&text)))?,
+    )?;
     module.set(
         "Slugify",
         lua.create_function(|_, (text, separator): (String, Option<String>)| {
@@ -242,10 +277,15 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     )?;
     module.set(
         "IsValid",
-        lua.create_function(|_, text: LuaString| Ok(std::str::from_utf8(&text.as_bytes()).is_ok()))?,
+        lua.create_function(
+            |_, text: LuaString| Ok(std::str::from_utf8(&text.as_bytes()).is_ok()),
+        )?,
     )?;
 
-    module.set("Length", lua.create_function(|_, text: String| Ok(display_width(&text)))?)?;
+    module.set(
+        "Length",
+        lua.create_function(|_, text: String| Ok(display_width(&text)))?,
+    )?;
     module.set(
         "Graphemes",
         lua.create_function(|lua, text: String| lua.create_sequence_from(graphemes(&text)))?,
@@ -268,30 +308,39 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     )?;
     module.set(
         "Truncate",
-        lua.create_function(|_, (text, length, suffix): (String, usize, Option<String>)| {
-            let parts = graphemes(&text);
-            if parts.len() <= length {
-                return Ok(text);
-            }
-            let suffix = suffix.unwrap_or_else(|| "...".to_owned());
-            let suffix_width = display_width(&suffix);
-            if suffix_width >= length {
-                return Ok(parts[..length].concat());
-            }
-            let keep = length - suffix_width;
-            Ok(format!("{}{suffix}", parts[..keep].concat().trim_end()))
-        })?,
+        lua.create_function(
+            |_, (text, length, suffix): (String, usize, Option<String>)| {
+                let parts = graphemes(&text);
+                if parts.len() <= length {
+                    return Ok(text);
+                }
+                let suffix = suffix.unwrap_or_else(|| "...".to_owned());
+                let suffix_width = display_width(&suffix);
+                if suffix_width >= length {
+                    return Ok(parts[..length].concat());
+                }
+                let keep = length - suffix_width;
+                Ok(format!("{}{suffix}", parts[..keep].concat().trim_end()))
+            },
+        )?,
     )?;
-    module.set("Trim", lua.create_function(|_, text: String| Ok(text.trim().to_owned()))?)?;
+    module.set(
+        "Trim",
+        lua.create_function(|_, text: String| Ok(text.trim().to_owned()))?,
+    )?;
     module.set(
         "Split",
-        lua.create_function(|lua, (text, separator, options): (String, String, Options)| {
-            split(lua, &text, &separator, &options)
-        })?,
+        lua.create_function(
+            |lua, (text, separator, options): (String, String, Options)| {
+                split(lua, &text, &separator, &options)
+            },
+        )?,
     )?;
     module.set(
         "Pad",
-        lua.create_function(|_, (text, width, options): (String, usize, Options)| pad(&text, width, &options))?,
+        lua.create_function(|_, (text, width, options): (String, usize, Options)| {
+            pad(&text, width, &options)
+        })?,
     )?;
     module.set(
         "Wrap",
@@ -305,7 +354,9 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
 
     module.set(
         "Levenshtein",
-        lua.create_function(|_, (first, second): (String, String)| Ok(strsim::levenshtein(&first, &second)))?,
+        lua.create_function(|_, (first, second): (String, String)| {
+            Ok(strsim::levenshtein(&first, &second))
+        })?,
     )?;
     module.set(
         "DamerauLevenshtein",
@@ -315,25 +366,36 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     )?;
     module.set(
         "Similarity",
-        lua.create_function(|_, (first, second, algorithm): (String, String, Option<String>)| {
-            similarity(&first, &second, algorithm.as_deref().unwrap_or("JaroWinkler"))
-        })?,
+        lua.create_function(
+            |_, (first, second, algorithm): (String, String, Option<String>)| {
+                similarity(
+                    &first,
+                    &second,
+                    algorithm.as_deref().unwrap_or("JaroWinkler"),
+                )
+            },
+        )?,
     )?;
     module.set(
         "FuzzyFind",
-        lua.create_function(|lua, (query, candidates, options): (String, LuaTable, Options)| {
-            fuzzy_find(lua, &query, &candidates, &options)
-        })?,
+        lua.create_function(
+            |lua, (query, candidates, options): (String, LuaTable, Options)| {
+                fuzzy_find(lua, &query, &candidates, &options)
+            },
+        )?,
     )?;
     module.set(
         "Closest",
-        lua.create_function(|lua, (query, candidates, options): (String, LuaTable, Options)| {
-            let results = fuzzy_find(lua, &query, &candidates, &options)?;
-            match results.raw_get::<Option<LuaTable>>(1)? {
-                Some(best) => (best.get::<LuaValue>("Item")?, best.get::<f64>("Score")?).into_lua_multi(lua),
-                None => LuaNil.into_lua_multi(lua),
-            }
-        })?,
+        lua.create_function(
+            |lua, (query, candidates, options): (String, LuaTable, Options)| {
+                let results = fuzzy_find(lua, &query, &candidates, &options)?;
+                match results.raw_get::<Option<LuaTable>>(1)? {
+                    Some(best) => (best.get::<LuaValue>("Item")?, best.get::<f64>("Score")?)
+                        .into_lua_multi(lua),
+                    None => LuaNil.into_lua_multi(lua),
+                }
+            },
+        )?,
     )?;
 
     crate::filter::register(lua, &module)?;

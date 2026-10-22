@@ -84,7 +84,9 @@ fn start_offset(text: &[u8], start: Option<i64>) -> LuaResult<Option<usize>> {
 }
 
 fn match_table(lua: &Lua, pattern: &Pattern, captures: &Captures) -> LuaResult<LuaTable> {
-    let whole = captures.get(0).ok_or_else(|| LuaError::runtime("a match without text"))?;
+    let whole = captures
+        .get(0)
+        .ok_or_else(|| LuaError::runtime("a match without text"))?;
     let table = lua.create_table()?;
     table.set("Text", lua.create_string(whole.as_bytes())?)?;
     table.set("Start", whole.start() + 1)?;
@@ -119,12 +121,22 @@ fn is_match(pattern: &Pattern, text: &[u8], start: Option<i64>) -> LuaResult<boo
 fn find(lua: &Lua, pattern: &Pattern, text: &[u8], start: Option<i64>) -> LuaResult<LuaMultiValue> {
     let found = start_offset(text, start)?.and_then(|offset| pattern.find_at(text, offset));
     match found {
-        Some(found) => (found.start() + 1, found.end(), lua.create_string(found.as_bytes())?).into_lua_multi(lua),
+        Some(found) => (
+            found.start() + 1,
+            found.end(),
+            lua.create_string(found.as_bytes())?,
+        )
+            .into_lua_multi(lua),
         None => LuaNil.into_lua_multi(lua),
     }
 }
 
-fn first_match(lua: &Lua, pattern: &Pattern, text: &[u8], start: Option<i64>) -> LuaResult<Option<LuaTable>> {
+fn first_match(
+    lua: &Lua,
+    pattern: &Pattern,
+    text: &[u8],
+    start: Option<i64>,
+) -> LuaResult<Option<LuaTable>> {
     let Some(offset) = start_offset(text, start)? else {
         return Ok(None);
     };
@@ -134,9 +146,17 @@ fn first_match(lua: &Lua, pattern: &Pattern, text: &[u8], start: Option<i64>) ->
         .transpose()
 }
 
-fn match_all(lua: &Lua, pattern: &Pattern, text: &[u8], limit: Option<usize>) -> LuaResult<LuaTable> {
+fn match_all(
+    lua: &Lua,
+    pattern: &Pattern,
+    text: &[u8],
+    limit: Option<usize>,
+) -> LuaResult<LuaTable> {
     let result = lua.create_table()?;
-    for captures in pattern.captures_iter(text).take(limit.unwrap_or(usize::MAX)) {
+    for captures in pattern
+        .captures_iter(text)
+        .take(limit.unwrap_or(usize::MAX))
+    {
         result.raw_push(match_table(lua, pattern, &captures)?)?;
     }
     Ok(result)
@@ -155,7 +175,9 @@ fn replace(
     let mut count = 0;
 
     for captures in pattern.captures_iter(text).take(limit) {
-        let whole = captures.get(0).ok_or_else(|| LuaError::runtime("a match without text"))?;
+        let whole = captures
+            .get(0)
+            .ok_or_else(|| LuaError::runtime("a match without text"))?;
         output.extend_from_slice(&text[last..whole.start()]);
         match &replacement {
             LuaValue::String(template) => captures.expand(&template.as_bytes(), &mut output),
@@ -165,8 +187,12 @@ fn replace(
             LuaValue::Function(function) => {
                 match function.call::<LuaValue>(match_table(lua, pattern, &captures)?)? {
                     LuaValue::String(value) => output.extend_from_slice(&value.as_bytes()),
-                    LuaValue::Integer(value) => output.extend_from_slice(value.to_string().as_bytes()),
-                    LuaValue::Number(value) => output.extend_from_slice(value.to_string().as_bytes()),
+                    LuaValue::Integer(value) => {
+                        output.extend_from_slice(value.to_string().as_bytes())
+                    }
+                    LuaValue::Number(value) => {
+                        output.extend_from_slice(value.to_string().as_bytes())
+                    }
                     LuaNil | LuaValue::Boolean(false) => output.extend_from_slice(whole.as_bytes()),
                     other => {
                         return Err(LuaError::runtime(format!(
@@ -176,11 +202,13 @@ fn replace(
                     }
                 }
             }
-            LuaValue::Table(lookup) => match lookup.get::<LuaValue>(lua.create_string(whole.as_bytes())?)? {
-                LuaValue::String(value) => output.extend_from_slice(&value.as_bytes()),
-                LuaNil | LuaValue::Boolean(false) => output.extend_from_slice(whole.as_bytes()),
-                other => output.extend_from_slice(other.to_string()?.as_bytes()),
-            },
+            LuaValue::Table(lookup) => {
+                match lookup.get::<LuaValue>(lua.create_string(whole.as_bytes())?)? {
+                    LuaValue::String(value) => output.extend_from_slice(&value.as_bytes()),
+                    LuaNil | LuaValue::Boolean(false) => output.extend_from_slice(whole.as_bytes()),
+                    other => output.extend_from_slice(other.to_string()?.as_bytes()),
+                }
+            }
             other => {
                 return Err(LuaError::runtime(format!(
                     "the replacement has to be a string, a table or a function, got {}",
@@ -209,34 +237,55 @@ fn split(lua: &Lua, pattern: &Pattern, text: &[u8], limit: Option<usize>) -> Lua
 
 impl LuaUserData for Regex {
     fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("IsMatch", |_, regex, (text, start): (LuaString, Option<i64>)| {
-            is_match(&regex.0, &text.as_bytes(), start)
-        });
-        methods.add_method("Find", |lua, regex, (text, start): (LuaString, Option<i64>)| {
-            find(lua, &regex.0, &text.as_bytes(), start)
-        });
-        methods.add_method("Match", |lua, regex, (text, start): (LuaString, Option<i64>)| {
-            first_match(lua, &regex.0, &text.as_bytes(), start)
-        });
-        methods.add_method("MatchAll", |lua, regex, (text, limit): (LuaString, Option<usize>)| {
-            match_all(lua, &regex.0, &text.as_bytes(), limit)
-        });
+        methods.add_method(
+            "IsMatch",
+            |_, regex, (text, start): (LuaString, Option<i64>)| {
+                is_match(&regex.0, &text.as_bytes(), start)
+            },
+        );
+        methods.add_method(
+            "Find",
+            |lua, regex, (text, start): (LuaString, Option<i64>)| {
+                find(lua, &regex.0, &text.as_bytes(), start)
+            },
+        );
+        methods.add_method(
+            "Match",
+            |lua, regex, (text, start): (LuaString, Option<i64>)| {
+                first_match(lua, &regex.0, &text.as_bytes(), start)
+            },
+        );
+        methods.add_method(
+            "MatchAll",
+            |lua, regex, (text, limit): (LuaString, Option<usize>)| {
+                match_all(lua, &regex.0, &text.as_bytes(), limit)
+            },
+        );
         methods.add_method(
             "Replace",
             |lua, regex, (text, replacement, limit): (LuaString, LuaValue, Option<usize>)| {
                 replace(lua, &regex.0, &text.as_bytes(), replacement, limit)
             },
         );
-        methods.add_method("Split", |lua, regex, (text, limit): (LuaString, Option<usize>)| {
-            split(lua, &regex.0, &text.as_bytes(), limit)
+        methods.add_method(
+            "Split",
+            |lua, regex, (text, limit): (LuaString, Option<usize>)| {
+                split(lua, &regex.0, &text.as_bytes(), limit)
+            },
+        );
+        methods.add_method("Count", |_, regex, text: LuaString| {
+            Ok(regex.0.find_iter(&text.as_bytes()).count())
         });
-        methods.add_method("Count", |_, regex, text: LuaString| Ok(regex.0.find_iter(&text.as_bytes()).count()));
         methods.add_method("GetPattern", |_, regex, ()| Ok(regex.0.as_str().to_owned()));
-        methods.add_method("GetGroupCount", |_, regex, ()| Ok(regex.0.captures_len() - 1));
+        methods.add_method("GetGroupCount", |_, regex, ()| {
+            Ok(regex.0.captures_len() - 1)
+        });
         methods.add_method("GetGroupNames", |lua, regex, ()| {
             lua.create_sequence_from(regex.0.capture_names().flatten().map(str::to_owned))
         });
-        methods.add_meta_method(LuaMetaMethod::ToString, |_, regex, ()| Ok(format!("Regex({})", regex.0.as_str())));
+        methods.add_meta_method(LuaMetaMethod::ToString, |_, regex, ()| {
+            Ok(format!("Regex({})", regex.0.as_str()))
+        });
     }
 }
 
@@ -257,31 +306,42 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
         "IsValid",
         lua.create_function(|_, pattern: String| Ok(compile(&pattern, Flags::default()).is_ok()))?,
     )?;
-    module.set("Escape", lua.create_function(|_, text: String| Ok(regex::escape(&text)))?)?;
+    module.set(
+        "Escape",
+        lua.create_function(|_, text: String| Ok(regex::escape(&text)))?,
+    )?;
 
     module.set(
         "IsMatch",
-        lua.create_function(|lua, (pattern, text, start): (String, LuaString, Option<i64>)| {
-            is_match(&cached(lua, &pattern)?, &text.as_bytes(), start)
-        })?,
+        lua.create_function(
+            |lua, (pattern, text, start): (String, LuaString, Option<i64>)| {
+                is_match(&cached(lua, &pattern)?, &text.as_bytes(), start)
+            },
+        )?,
     )?;
     module.set(
         "Find",
-        lua.create_function(|lua, (pattern, text, start): (String, LuaString, Option<i64>)| {
-            find(lua, &cached(lua, &pattern)?, &text.as_bytes(), start)
-        })?,
+        lua.create_function(
+            |lua, (pattern, text, start): (String, LuaString, Option<i64>)| {
+                find(lua, &cached(lua, &pattern)?, &text.as_bytes(), start)
+            },
+        )?,
     )?;
     module.set(
         "Match",
-        lua.create_function(|lua, (pattern, text, start): (String, LuaString, Option<i64>)| {
-            first_match(lua, &cached(lua, &pattern)?, &text.as_bytes(), start)
-        })?,
+        lua.create_function(
+            |lua, (pattern, text, start): (String, LuaString, Option<i64>)| {
+                first_match(lua, &cached(lua, &pattern)?, &text.as_bytes(), start)
+            },
+        )?,
     )?;
     module.set(
         "MatchAll",
-        lua.create_function(|lua, (pattern, text, limit): (String, LuaString, Option<usize>)| {
-            match_all(lua, &cached(lua, &pattern)?, &text.as_bytes(), limit)
-        })?,
+        lua.create_function(
+            |lua, (pattern, text, limit): (String, LuaString, Option<usize>)| {
+                match_all(lua, &cached(lua, &pattern)?, &text.as_bytes(), limit)
+            },
+        )?,
     )?;
     module.set(
         "Replace",
@@ -293,9 +353,11 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     )?;
     module.set(
         "Split",
-        lua.create_function(|lua, (pattern, text, limit): (String, LuaString, Option<usize>)| {
-            split(lua, &cached(lua, &pattern)?, &text.as_bytes(), limit)
-        })?,
+        lua.create_function(
+            |lua, (pattern, text, limit): (String, LuaString, Option<usize>)| {
+                split(lua, &cached(lua, &pattern)?, &text.as_bytes(), limit)
+            },
+        )?,
     )?;
 
     Ok(module)

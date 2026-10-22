@@ -64,7 +64,11 @@ fn normalize(text: &str, settings: Settings) -> Normalized {
         let replacement = deunicode::deunicode_char(character).unwrap_or(" ");
         for converted in replacement.chars() {
             let converted = converted.to_ascii_lowercase();
-            let converted = if settings.leetspeak { leet(converted) } else { converted };
+            let converted = if settings.leetspeak {
+                leet(converted)
+            } else {
+                converted
+            };
             if converted.is_ascii_alphanumeric() {
                 push(converted, range.clone());
             } else {
@@ -93,7 +97,9 @@ impl WordFilter {
 
     fn set_words(&mut self, words: Vec<String>) -> LuaResult<()> {
         if words.len() > MAX_WORDS {
-            return Err(LuaError::runtime(format!("a word filter holds at most {MAX_WORDS} words")));
+            return Err(LuaError::runtime(format!(
+                "a word filter holds at most {MAX_WORDS} words"
+            )));
         }
         let patterns: Vec<String> = words
             .iter()
@@ -102,14 +108,22 @@ impl WordFilter {
         let searcher = if patterns.iter().any(|pattern| !pattern.is_empty()) {
             let usable: Vec<&str> = patterns
                 .iter()
-                .map(|pattern| if pattern.is_empty() { "\u{0}" } else { pattern.as_str() })
+                .map(|pattern| {
+                    if pattern.is_empty() {
+                        "\u{0}"
+                    } else {
+                        pattern.as_str()
+                    }
+                })
                 .collect();
             Some(
                 AhoCorasick::builder()
                     .match_kind(MatchKind::LeftmostLongest)
                     .start_kind(StartKind::Both)
                     .build(usable)
-                    .map_err(|error| LuaError::runtime(format!("failed to build the word filter: {error}")))?,
+                    .map_err(|error| {
+                        LuaError::runtime(format!("failed to build the word filter: {error}"))
+                    })?,
             )
         } else {
             None
@@ -130,7 +144,9 @@ impl WordFilter {
         if self.settings.whole_words {
             let mut start = 0;
             while start < bytes.len() {
-                let input = Input::new(&normalized.text).range(start..).anchored(Anchored::Yes);
+                let input = Input::new(&normalized.text)
+                    .range(start..)
+                    .anchored(Anchored::Yes);
                 let matched = searcher.find(input).filter(|found_match| {
                     found_match.end() == bytes.len() || bytes[found_match.end()] == b' '
                 });
@@ -138,7 +154,8 @@ impl WordFilter {
                     Some(found_match) => {
                         found.push(Found {
                             word: found_match.pattern().as_usize(),
-                            range: normalized.ranges[start].start..normalized.ranges[found_match.end() - 1].end,
+                            range: normalized.ranges[start].start
+                                ..normalized.ranges[found_match.end() - 1].end,
                         });
                         found_match.end()
                     }
@@ -153,7 +170,8 @@ impl WordFilter {
             for found_match in searcher.find_iter(&normalized.text) {
                 found.push(Found {
                     word: found_match.pattern().as_usize(),
-                    range: normalized.ranges[found_match.start()].start..normalized.ranges[found_match.end() - 1].end,
+                    range: normalized.ranges[found_match.start()].start
+                        ..normalized.ranges[found_match.end() - 1].end,
                 });
             }
         }
@@ -177,7 +195,11 @@ fn censor(text: &str, found: &[Found], replacement: &str) -> String {
         let original = &text[entry.range.clone()];
         if single {
             for character in original.chars() {
-                output.push_str(if character.is_whitespace() { " " } else { replacement });
+                output.push_str(if character.is_whitespace() {
+                    " "
+                } else {
+                    replacement
+                });
             }
         } else {
             output.push_str(replacement);
@@ -190,7 +212,9 @@ fn censor(text: &str, found: &[Found], replacement: &str) -> String {
 
 impl LuaUserData for WordFilter {
     fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("Contains", |_, filter, text: String| Ok(!filter.find(&text).is_empty()));
+        methods.add_method("Contains", |_, filter, text: String| {
+            Ok(!filter.find(&text).is_empty())
+        });
         methods.add_method("Find", |lua, filter, text: String| {
             let result = lua.create_table()?;
             for entry in filter.find(&text) {
@@ -203,10 +227,16 @@ impl LuaUserData for WordFilter {
             }
             Ok(result)
         });
-        methods.add_method("Censor", |_, filter, (text, replacement): (String, Option<String>)| {
-            let found = filter.find(&text);
-            Ok((censor(&text, &found, replacement.as_deref().unwrap_or("*")), found.len()))
-        });
+        methods.add_method(
+            "Censor",
+            |_, filter, (text, replacement): (String, Option<String>)| {
+                let found = filter.find(&text);
+                Ok((
+                    censor(&text, &found, replacement.as_deref().unwrap_or("*")),
+                    found.len(),
+                ))
+            },
+        );
         methods.add_method_mut("Add", |_, filter, words: LuaTable| {
             let mut all = filter.words.clone();
             for word in read_words(words)? {
@@ -218,10 +248,17 @@ impl LuaUserData for WordFilter {
         });
         methods.add_method_mut("Remove", |_, filter, words: LuaTable| {
             let removed = read_words(words)?;
-            let remaining = filter.words.iter().filter(|word| !removed.contains(word)).cloned().collect();
+            let remaining = filter
+                .words
+                .iter()
+                .filter(|word| !removed.contains(word))
+                .cloned()
+                .collect();
             filter.set_words(remaining)
         });
-        methods.add_method("GetWords", |lua, filter, ()| lua.create_sequence_from(filter.words.iter().map(String::as_str)));
+        methods.add_method("GetWords", |lua, filter, ()| {
+            lua.create_sequence_from(filter.words.iter().map(String::as_str))
+        });
     }
 }
 

@@ -1,7 +1,7 @@
-use mlua::prelude::*;
 use minijinja::syntax::SyntaxConfig;
 use minijinja::value::Serde;
 use minijinja::{AutoEscape, Environment, UndefinedBehavior, Value};
+use mlua::prelude::*;
 use quark_core::{Options, create_userdata};
 
 const DEFAULT_FUEL: u64 = 10_000_000;
@@ -16,7 +16,9 @@ fn configure(options: &Options) -> LuaResult<Environment<'static>> {
         Some("Html") => AutoEscape::Html,
         Some("Json") => AutoEscape::Json,
         Some(other) => {
-            return Err(LuaError::runtime(format!("unknown AutoEscape '{other}', expected None, Html or Json")));
+            return Err(LuaError::runtime(format!(
+                "unknown AutoEscape '{other}', expected None, Html or Json"
+            )));
         }
     };
     environment.set_auto_escape_callback(move |_| escape.clone());
@@ -52,14 +54,19 @@ fn configure(options: &Options) -> LuaResult<Environment<'static>> {
 }
 
 fn convert(owner: &LuaTable, value: LuaValue) -> LuaResult<Value> {
-    let lua = owner.weak_lua().try_upgrade().ok_or_else(|| LuaError::runtime("the Lua state is gone"))?;
+    let lua = owner
+        .weak_lua()
+        .try_upgrade()
+        .ok_or_else(|| LuaError::runtime("the Lua state is gone"))?;
     to_value(&lua, value)
 }
 
 fn to_value(lua: &Lua, value: LuaValue) -> LuaResult<Value> {
     let json: serde_json::Value = lua.from_value_with(
         value,
-        LuaDeserializeOptions::new().deny_unsupported_types(false).deny_recursive_tables(true),
+        LuaDeserializeOptions::new()
+            .deny_unsupported_types(false)
+            .deny_recursive_tables(true),
     )?;
     Ok(Value::from(Serde(json)))
 }
@@ -105,17 +112,29 @@ impl LuaUserData for Templates {
             templates.0.remove_template(&name);
             Ok(())
         });
-        methods.add_method("Has", |_, templates, name: String| Ok(templates.0.get_template(&name).is_ok()));
+        methods.add_method("Has", |_, templates, name: String| {
+            Ok(templates.0.get_template(&name).is_ok())
+        });
         methods.add_method("GetNames", |lua, templates, ()| {
-            let mut names: Vec<String> = templates.0.templates().map(|(name, _)| name.to_owned()).collect();
+            let mut names: Vec<String> = templates
+                .0
+                .templates()
+                .map(|(name, _)| name.to_owned())
+                .collect();
             names.sort();
             lua.create_sequence_from(names)
         });
-        methods.add_method("Render", |lua, templates, (name, values): (String, Option<LuaValue>)| {
-            let values = context(lua, values)?;
-            let rendered = templates.0.get_template(&name).and_then(|template| template.render(values));
-            result(lua, rendered)
-        });
+        methods.add_method(
+            "Render",
+            |lua, templates, (name, values): (String, Option<LuaValue>)| {
+                let values = context(lua, values)?;
+                let rendered = templates
+                    .0
+                    .get_template(&name)
+                    .and_then(|template| template.render(values));
+                result(lua, rendered)
+            },
+        );
         methods.add_method(
             "RenderString",
             |lua, templates, (source, values): (String, Option<LuaValue>)| {
@@ -131,11 +150,13 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
 
     module.set(
         "Render",
-        lua.create_function(|lua, (source, values, options): (String, Option<LuaValue>, Options)| {
-            let environment = configure(&options)?;
-            let values = context(lua, values)?;
-            result(lua, environment.render_str(&source, values))
-        })?,
+        lua.create_function(
+            |lua, (source, values, options): (String, Option<LuaValue>, Options)| {
+                let environment = configure(&options)?;
+                let values = context(lua, values)?;
+                result(lua, environment.render_str(&source, values))
+            },
+        )?,
     )?;
     module.set(
         "New",
