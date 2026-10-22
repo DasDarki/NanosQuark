@@ -105,6 +105,11 @@ const MODULES: &[Module] = &[
         name: "HTTP",
         build: quark_net::http,
     },
+    #[cfg(feature = "random")]
+    Module {
+        name: "Random",
+        build: quark_random::build,
+    },
     #[cfg(feature = "redis")]
     Module {
         name: "Redis",

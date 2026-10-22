@@ -17,14 +17,16 @@ quark-compression = { workspace = true, optional = true }
 quark-crypto = { workspace = true, optional = true }
 quark-formats = { workspace = true, optional = true }
 quark-net = { workspace = true, optional = true }
+quark-random = { workspace = true, optional = true }
 quark-redis = { workspace = true, optional = true }
 quark-testing = { workspace = true, optional = true }
 
 [features]
-default = ["compression", "crypto", "formats", "net", "redis", "testing"]
+default = ["compression", "crypto", "formats", "net", "random", "redis", "testing"]
 compression = ["dep:quark-compression"]
 crypto = ["dep:quark-crypto"]
 formats = ["dep:quark-formats"]
 net = ["dep:quark-net"]
+random = ["dep:quark-random"]
 redis = ["dep:quark-redis"]
 testing = ["dep:quark-testing"]
