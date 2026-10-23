@@ -55,8 +55,8 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] Loot tables with nested tables, guaranteed drops and pity counters
 - [x] Dice notation: `Random.Roll("2d6+3")`, keep highest and lowest
 - [x] Noise: Perlin, OpenSimplex2, Cellular, Value, fractals, single values and bulk into a `Quark.Buffer`
-- [ ] Domain warping for noise
-- [ ] Poisson disk sampling for evenly spread positions
+- [x] Domain warping for noise
+- [x] Poisson disk sampling for evenly spread positions
 
 ## Net
 

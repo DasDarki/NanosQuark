@@ -6,6 +6,10 @@ use crate::describe;
 pub struct Options(Option<LuaTable>);
 
 impl Options {
+    pub fn from_table(table: LuaTable) -> Self {
+        Options(Some(table))
+    }
+
     pub fn get<T: FromLua>(&self, key: &str) -> LuaResult<Option<T>> {
         let Some(table) = &self.0 else {
             return Ok(None);

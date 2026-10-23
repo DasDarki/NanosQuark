@@ -195,10 +195,20 @@ local height = terrain:Get(x, y) * 2000
 | `CellularDistance` | `Euclidean`, `EuclideanSq`, `Manhattan`, `Hybrid` (`EuclideanSq`) |
 | `CellularReturn` | `CellValue`, `Distance`, `Distance2`, `Distance2Add`, `Distance2Sub`, `Distance2Mul`, `Distance2Div` (`Distance`) |
 | `CellularJitter` | how irregular cells are (1) |
+| `Warp` | distort the coordinates before sampling for more natural, swirly shapes, `true` or a table of warp options |
+
+| Warp option | |
+| --- | --- |
+| `Type` | `OpenSimplex2`, `OpenSimplex2Reduced` or `BasicGrid` (`OpenSimplex2`) |
+| `Amplitude` | how far coordinates are moved (30) |
+| `Frequency` | how quickly the distortion changes (the noise frequency) |
+| `Fractal` | `None`, `Progressive` or `Independent` to layer several warps (`None`) |
+| `Octaves`, `Lacunarity`, `Gain`, `Seed` | as for the noise |
 
 | Method | |
 | --- | --- |
 | `:Get(x, y, z?)` | value from about -1 to 1 at a 2D or 3D position |
+| `:Warp(x, y, z?)` | the warped coordinates, unchanged without `Warp` |
 | `:Fill(width, height, options?, callback?)` | `width * height` values as a [Buffer](buffer.md) of little endian 32 bit floats, row by row |
 
 `Fill` samples a grid starting at `X`, `Y` with distance `Step` (1) between samples, at height `Z` for 3D noise. Up to 16777216 samples, with a callback the grid is computed on a worker thread.
@@ -213,3 +223,24 @@ terrain:Fill(256, 256, { X = chunk_x * 256, Y = chunk_y * 256, Step = 4 }, funct
     end
 end)
 ```
+
+## Poisson disk sampling
+
+`Random.PoissonDisk(width, height, radius, options?)` returns evenly spread random points with at least `radius` between any two of them, as a list of `{ X, Y }`. Unlike uniform random points they never clump, which makes them ideal for spawn points, trees, rocks or loot positions.
+
+| Option | |
+| --- | --- |
+| `X`, `Y` | position of the area, points are between `X` and `X + width` (0) |
+| `Filter` | `function(x, y)` returning whether a point is allowed, for example to skip water or buildings |
+| `Limit` | maximum number of points (100000) |
+| `Attempts` | candidates tried around each point before giving up on it, more gives a denser result (30) |
+| `Generator` | generator to use, the default generator without one |
+
+```lua
+local trees = Random.PoissonDisk(10000, 10000, 400, {
+    X = -5000,
+    Y = -5000,
+    Filter = function(x, y) return terrain:Get(x, y) > 0 end,
+})
+```
+

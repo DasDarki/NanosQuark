@@ -299,3 +299,57 @@ Test.Describe("Random.Noise", function()
         Expect(function() noise:Fill(0, 4) end):ToThrow("samples")
     end)
 end)
+
+Test.Describe("Random.Noise warping", function()
+    local Random = Quark.Random
+
+    Test.It("warps coordinates", function()
+        local plain = Random.Noise({ Seed = 9 })
+        local warped = Random.Noise({ Seed = 9, Warp = { Amplitude = 50, Fractal = "Progressive" } })
+        local x, y = warped:Warp(10, 20)
+        Expect(x ~= 10 or y ~= 20):ToBe(true)
+        Expect(warped:Get(10, 20)):ToBeCloseTo(plain:Get(x, y), 0.00001)
+        local a, b, c = warped:Warp(1, 2, 3)
+        Expect(warped:Get(1, 2, 3)):ToBeCloseTo(plain:Get(a, b, c), 0.00001)
+        Expect({ plain:Warp(10, 20) }):ToEqual({ 10, 20 })
+
+        local buffer = warped:Fill(4, 4)
+        Expect(buffer:Read("f32le", buffer:GetIndexBase() + 5 * 4)):ToBeCloseTo(warped:Get(1, 1), 0.00001)
+        Expect(Random.Noise({ Warp = true }):Get(1, 1)):ToBeType("number")
+        Expect(function() Random.Noise({ Warp = { Type = "Spiral" } }) end):ToThrow("unknown warp type")
+        Expect(function() Random.Noise({ Warp = 5 }) end):ToThrow("Warp option")
+    end)
+end)
+
+Test.Describe("Random.PoissonDisk", function()
+    local Random = Quark.Random
+
+    Test.It("spreads points with a minimum distance", function()
+        local points = Random.PoissonDisk(200, 100, 10, { Generator = Random.New(3), X = 1000, Y = -50 })
+        Expect(#points > 80):ToBe(true)
+        for index = 1, #points do
+            local point = points[index]
+            Expect(point.X >= 1000 and point.X < 1200 and point.Y >= -50 and point.Y < 50):ToBe(true)
+            for other = index + 1, #points do
+                local dx, dy = point.X - points[other].X, point.Y - points[other].Y
+                Expect(dx * dx + dy * dy >= 100 - 0.0001):ToBe(true)
+            end
+        end
+        local again = Random.PoissonDisk(200, 100, 10, { Generator = Random.New(3), X = 1000, Y = -50 })
+        Expect(again):ToEqual(points)
+    end)
+
+    Test.It("filters and limits points", function()
+        local points = Random.PoissonDisk(100, 100, 5, {
+            Filter = function(x, y) return x < 50 end,
+            Limit = 20,
+        })
+        Expect(#points):ToBe(20)
+        for _, point in ipairs(points) do
+            Expect(point.X < 50):ToBe(true)
+        end
+        Expect(Random.PoissonDisk(10, 10, 5, { Filter = function() return false end })):ToEqual({})
+        Expect(function() Random.PoissonDisk(1000000, 1000000, 1) end):ToThrow("too large")
+        Expect(function() Random.PoissonDisk(10, 10, 0) end):ToThrow("radius")
+    end)
+end)

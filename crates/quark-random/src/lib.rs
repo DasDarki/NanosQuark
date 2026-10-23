@@ -3,6 +3,7 @@ mod generator;
 mod noise;
 mod operations;
 mod picker;
+mod poisson;
 mod rng;
 
 use mlua::prelude::*;
@@ -16,6 +17,7 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     generator::register(lua, &module)?;
     picker::register(lua, &module)?;
     noise::register(lua, &module)?;
+    poisson::register(lua, &module)?;
 
     module.set(
         "IsGenerator",
