@@ -321,4 +321,16 @@ function Promise.Await(target, ...)
     error(promise.values[1], 0)
 end
 
-return Promise
+return {
+    New = Promise.New,
+    Resolve = Promise.Resolve,
+    Reject = Promise.Reject,
+    IsPromise = Promise.IsPromise,
+    All = Promise.All,
+    AllSettled = Promise.AllSettled,
+    Race = Promise.Race,
+    From = Promise.From,
+    Delay = Promise.Delay,
+    Async = Promise.Async,
+    Await = Promise.Await,
+}
