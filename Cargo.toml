@@ -112,5 +112,192 @@ unicode-normalization = "0.1.26"
 unicode-segmentation = "1.13.3"
 
 [profile.release]
-lto = "thin"
+lto = "fat"
 codegen-units = 1
+strip = true
+
+[profile.release.package.hickory-resolver]
+opt-level = "s"
+
+[profile.release.package.hickory-proto]
+opt-level = "s"
+
+[profile.release.package.redis]
+opt-level = "s"
+
+[profile.release.package.async-nats]
+opt-level = "s"
+
+[profile.release.package.rumqttc]
+opt-level = "s"
+
+[profile.release.package.minijinja]
+opt-level = "s"
+
+[profile.release.package.fluent-bundle]
+opt-level = "s"
+
+[profile.release.package.fluent-syntax]
+opt-level = "s"
+
+[profile.release.package.fluent-langneg]
+opt-level = "s"
+
+[profile.release.package.intl_pluralrules]
+opt-level = "s"
+
+[profile.release.package.unic-langid-impl]
+opt-level = "s"
+
+[profile.release.package.jsonschema]
+opt-level = "s"
+
+[profile.release.package.referencing]
+opt-level = "s"
+
+[profile.release.package.fancy-regex]
+opt-level = "s"
+
+[profile.release.package.x509-parser]
+opt-level = "s"
+
+[profile.release.package.der-parser]
+opt-level = "s"
+
+[profile.release.package.asn1-rs]
+opt-level = "s"
+
+[profile.release.package.rcgen]
+opt-level = "s"
+
+[profile.release.package.yasna]
+opt-level = "s"
+
+[profile.release.package.tokio-tungstenite]
+opt-level = "s"
+
+[profile.release.package.tungstenite]
+opt-level = "s"
+
+[profile.release.package.hyper]
+opt-level = "s"
+
+[profile.release.package.hyper-util]
+opt-level = "s"
+
+[profile.release.package.h2]
+opt-level = "s"
+
+[profile.release.package.http]
+opt-level = "s"
+
+[profile.release.package.multer]
+opt-level = "s"
+
+[profile.release.package.maxminddb]
+opt-level = "s"
+
+[profile.release.package.jiff]
+opt-level = "s"
+
+[profile.release.package.jiff-tzdb]
+opt-level = "s"
+
+[profile.release.package.quick-xml]
+opt-level = "s"
+
+[profile.release.package.serde-saphyr]
+opt-level = "s"
+
+[profile.release.package.toml]
+opt-level = "s"
+
+[profile.release.package.toml_parser]
+opt-level = "s"
+
+[profile.release.package.ciborium]
+opt-level = "s"
+
+[profile.release.package.rmpv]
+opt-level = "s"
+
+[profile.release.package.csv]
+opt-level = "s"
+
+[profile.release.package.url]
+opt-level = "s"
+
+[profile.release.package.idna]
+opt-level = "s"
+
+[profile.release.package.icu_normalizer]
+opt-level = "s"
+
+[profile.release.package.icu_properties]
+opt-level = "s"
+
+[profile.release.package.icu_collections]
+opt-level = "s"
+
+[profile.release.package.zip]
+opt-level = "s"
+
+[profile.release.package.tar]
+opt-level = "s"
+
+[profile.release.package.deunicode]
+opt-level = "s"
+
+[profile.release.package.unicode-normalization]
+opt-level = "s"
+
+[profile.release.package.unicode-segmentation]
+opt-level = "s"
+
+[profile.release.package.quark-net]
+opt-level = "s"
+
+[profile.release.package.quark-redis]
+opt-level = "s"
+
+[profile.release.package.quark-messaging]
+opt-level = "s"
+
+[profile.release.package.quark-formats]
+opt-level = "s"
+
+[profile.release.package.quark-text]
+opt-level = "s"
+
+[profile.release.package.quark-time]
+opt-level = "s"
+
+[profile.release.package.quark-locale]
+opt-level = "s"
+
+[profile.release.package.quark-utilities]
+opt-level = "s"
+
+[profile.release.package.quark-testing]
+opt-level = "s"
+
+[profile.release.package.quark-compression]
+opt-level = "s"
+
+[profile.release.package.mlua]
+opt-level = "s"
+
+[profile.release.package.webpki-roots]
+opt-level = "s"
+
+[profile.release.package.rustls]
+opt-level = "s"
+
+[profile.release.package.rustls-webpki]
+opt-level = "s"
+
+[profile.release.package.nuid]
+opt-level = "s"
+
+[profile.release.package.tokio-rustls]
+opt-level = "s"

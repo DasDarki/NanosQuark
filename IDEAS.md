@@ -22,7 +22,7 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] Typed views on buffers for bulk numeric work in native functions (`Buffer:View("f32")`)
 - [ ] Lua Language Server definitions (`---@class`, `---@param`) generated from the Rust modules, for autocompletion in VS Code
 - [ ] CI: build Linux and Windows, assemble the package, attach a zip to releases
-- [ ] Binary size: the module is about 12 MB, try `opt-level = "s"`, fewer default modules or splitting rarely used modules into separate packages
+- [x] Binary size: stripped, fat LTO and size optimization for code that is not performance critical (34 MB down to 22 MB on Linux), modules can be removed with Cargo features
 - [x] Test harness: standalone Lua host with `Server`/`Console`/`Package` stubs, so module tests run in CI without a nanos world server
 - [x] Optional allow lists for outgoing network targets and listening ports, since c-modules bypass the sandbox
 
