@@ -308,6 +308,7 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
         })?,
     )?;
 
+    crate::geoip::register(lua, &module)?;
     Ok(module)
 }
 

@@ -2,6 +2,7 @@ mod connection;
 mod dns;
 mod encoding;
 mod framing;
+mod geoip;
 mod http;
 mod http_client;
 mod stream;

@@ -1055,3 +1055,48 @@ Test.Describe("HTTP/2 and mutual TLS", function()
         server:Close()
     end)
 end)
+
+local GEOIP_DIRECTORY = (os and os.getenv and os.getenv("QUARK_GEOIP_DIR")) or "geoip-data"
+local city_database = Quark.Net.GeoIP(GEOIP_DIRECTORY .. "/GeoIP2-City-Test.mmdb")
+local describe_geoip = city_database and Test.Describe or Test.DescribeSkip
+
+describe_geoip("GeoIP", function()
+    local Net = Quark.Net
+
+    Test.It("looks up cities and countries", function()
+        local london = city_database:Lookup("81.2.69.142")
+        Expect(london.City):ToBe("London")
+        Expect(london.Country):ToEqual({ Code = "GB", Name = "United Kingdom", GeoNameID = 2635167 })
+        Expect(london.Continent.Code):ToBe("EU")
+        Expect(london.Subdivisions[1].Code):ToBe("ENG")
+        Expect(london.Location.Latitude):ToBeCloseTo(51.5142, 0.0001)
+        Expect(london.Location.TimeZone):ToBe("Europe/London")
+        Expect(london.Network):ToBe("81.2.69.142/31")
+
+        local milton = city_database:Lookup("216.160.83.56")
+        Expect({ milton.City, milton.PostalCode, milton.Country.Code }):ToEqual({ "Milton", "98354", "US" })
+        Expect(city_database:GetCountry("81.2.69.142")):ToBe("GB")
+        Expect(city_database:Lookup("127.0.0.1")):ToBeNil()
+        Expect(city_database:GetCountry("127.0.0.1")):ToBeNil()
+        local invalid, message = city_database:Lookup("not an ip")
+        Expect(invalid):ToBeNil()
+        Expect(message):ToContain("not an IP address")
+        Expect(city_database:LookupRaw("81.2.69.142").city.names.en):ToBe("London")
+    end)
+
+    Test.It("uses other languages and databases", function()
+        local german = Quark.Await(Net.GeoIP, GEOIP_DIRECTORY .. "/GeoIP2-City-Test.mmdb", { Language = "de" })
+        Expect(german:Lookup("81.2.69.142").Country.Name):ToBe("Vereinigtes Königreich")
+        Expect(german:Lookup("216.160.83.56").Country.Name):ToBe("USA")
+
+        local asn = assert(Net.GeoIP(GEOIP_DIRECTORY .. "/GeoLite2-ASN-Test.mmdb"))
+        local telstra = asn:Lookup("1.128.0.1")
+        Expect({ telstra.ASN, telstra.Organization }):ToEqual({ 1221, "Telstra Pty Ltd" })
+        Expect(asn:GetMetadata().DatabaseType):ToBe("GeoLite2-ASN")
+        Expect(city_database:GetMetadata().Languages):ToContain("en")
+
+        local missing, message = Net.GeoIP(GEOIP_DIRECTORY .. "/missing.mmdb")
+        Expect(missing):ToBeNil()
+        Expect(message):ToContain("cannot open the GeoIP database")
+    end)
+end)

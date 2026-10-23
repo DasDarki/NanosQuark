@@ -47,6 +47,30 @@ if Quark.Net.IsInRange(player_ip, "10.0.0.0/8") then
 end
 ```
 
+### GeoIP
+
+`Net.GeoIP(path, options?, callback?)` opens a MaxMind database (`.mmdb`), for example the free GeoLite2 Country, City or ASN databases from [maxmind.com](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data) or compatible databases like DB-IP. It returns a database object or `nil, message`. The file is read into memory once, with a callback on a worker thread. Option `Language` (`"en"`) selects the language of names, falling back to English.
+
+| Method | |
+| --- | --- |
+| `:Lookup(ip)` | information about the address, `nil` when the database has nothing for it, `nil, message` for invalid addresses |
+| `:GetCountry(ip)` | only the ISO country code like `"DE"`, or `nil` |
+| `:LookupRaw(ip)` | the complete record as stored in the database |
+| `:GetMetadata()` | `{ DatabaseType, BuildEpoch, IpVersion, NodeCount, Languages }` |
+
+Depending on the database, results contain `Country`, `RegisteredCountry` and `Continent` (each `{ Code, Name, GeoNameID }`), `City`, `Subdivisions` (list of `{ Code, Name }`), `PostalCode`, `Location` (`{ Latitude, Longitude, AccuracyRadius, TimeZone }`), `ASN` and `Organization`, and `Network`, the range the record belongs to.
+
+```lua
+local geoip = assert(Quark.Net.GeoIP("Packages/my-package/GeoLite2-Country.mmdb"))
+
+Player.Subscribe("Spawn", function(player)
+    local country = geoip:GetCountry(player:GetIP())
+    Chat.BroadcastMessage(player:GetName() .. " joined from " .. (country or "somewhere"))
+end)
+```
+
+Lookups take microseconds and do not block. Location data is approximate, often only accurate to the country or region, and must not be used to identify individuals. Check the license of the database, GeoLite2 requires an attribution.
+
 ## TLS
 
 Outgoing connections verify the server certificate against the Mozilla root store. Servers take their certificate as PEM text, for example read from a file of the package:
