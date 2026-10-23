@@ -1,5 +1,6 @@
 mod archive;
 mod codec;
+mod stream;
 mod tar;
 mod zip;
 

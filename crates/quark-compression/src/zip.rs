@@ -3,7 +3,7 @@ use std::io::{Cursor, Read, Write};
 use mlua::prelude::*;
 use quark_core::{Binary, Bytes, options_and_callback};
 use zip::write::SimpleFileOptions;
-use zip::{CompressionMethod, ZipArchive, ZipWriter};
+use zip::{AesMode, CompressionMethod, ZipArchive, ZipWriter};
 
 use crate::archive::{Entries, Entry, read_inputs, safe_path};
 use crate::codec::{max_size, read_limited};
@@ -31,6 +31,24 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
                     }
                 };
                 let level = options.get::<i64>("Level")?;
+                let password: Option<String> = options.get("Password")?;
+                let mode = match options
+                    .get_or("Encryption", "AES256".to_owned())?
+                    .to_ascii_uppercase()
+                    .as_str()
+                {
+                    "AES128" => AesMode::Aes128,
+                    "AES192" => AesMode::Aes192,
+                    "AES256" => AesMode::Aes256,
+                    other => {
+                        return Err(LuaError::runtime(format!(
+                            "unknown ZIP encryption '{other}', expected AES128, AES192 or AES256"
+                        )));
+                    }
+                };
+                if password.as_deref() == Some("") {
+                    return Err(LuaError::runtime("the ZIP password must not be empty"));
+                }
                 if level.is_some_and(|level| !(0..=9).contains(&level)) {
                     return Err(LuaError::runtime("the ZIP level has to be between 0 and 9"));
                 }
@@ -47,6 +65,10 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
                             level
                         })
                         .large_file(false);
+                    let file_options = match &password {
+                        Some(password) => file_options.with_aes_encryption(mode, password),
+                        None => file_options,
+                    };
 
                     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
                     for input in &inputs {
@@ -77,7 +99,10 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
                 move |lua, (data, options, callback): (Binary, LuaValue, Option<LuaFunction>)| {
                     let (options, callback) = options_and_callback(options, callback)?;
                     let max_size = max_size(&options)?;
-                    quark_core::run(lua, callback, move || read(data.0, max_size, with_data))
+                    let password: Option<String> = options.get("Password")?;
+                    quark_core::run(lua, callback, move || {
+                        read(data.0, max_size, with_data, password.as_deref())
+                    })
                 },
             )?,
         )?;
@@ -86,14 +111,41 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     Ok(module)
 }
 
-fn read(data: Vec<u8>, max_size: u64, with_data: bool) -> Result<Entries, String> {
+fn read(
+    data: Vec<u8>,
+    max_size: u64,
+    with_data: bool,
+    password: Option<&str>,
+) -> Result<Entries, String> {
     let failed = |error: &dyn std::fmt::Display| format!("invalid ZIP archive: {error}");
     let mut archive = ZipArchive::new(Cursor::new(data)).map_err(|error| failed(&error))?;
     let mut entries = Vec::with_capacity(archive.len());
     let mut remaining = max_size;
 
     for index in 0..archive.len() {
-        let mut file = archive.by_index(index).map_err(|error| failed(&error))?;
+        let encrypted = archive
+            .by_index_raw(index)
+            .map_err(|error| failed(&error))?
+            .encrypted();
+        let opened = match (with_data, encrypted, password) {
+            (false, _, _) => archive.by_index_raw(index),
+            (true, false, _) => archive.by_index(index),
+            (true, true, Some(password)) => archive.by_index_decrypt(index, password.as_bytes()),
+            (true, true, None) => {
+                let name = archive
+                    .name_for_index(index)
+                    .and_then(|name| name.ok())
+                    .map(|name| name.into_owned())
+                    .unwrap_or_default();
+                return Err(format!(
+                    "the entry '{name}' is encrypted, pass the Password option"
+                ));
+            }
+        };
+        let mut file = opened.map_err(|error| match error {
+            zip::result::ZipError::InvalidPassword => "wrong ZIP password".to_owned(),
+            error => failed(&error),
+        })?;
         let name = file.name().map_err(|error| failed(&error))?.into_owned();
         let directory = file.is_dir();
         let mut contents = Vec::new();
@@ -103,6 +155,7 @@ fn read(data: Vec<u8>, max_size: u64, with_data: bool) -> Result<Entries, String
             remaining -= contents.len() as u64;
         }
         entries.push(Entry {
+            encrypted,
             safe_path: safe_path(&name),
             size: file.size(),
             compressed_size: Some(file.compressed_size()),

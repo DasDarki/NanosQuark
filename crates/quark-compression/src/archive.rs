@@ -8,6 +8,7 @@ pub struct Entry {
     pub safe_path: Option<String>,
     pub size: u64,
     pub compressed_size: Option<u64>,
+    pub encrypted: bool,
 }
 
 pub struct Entries {
@@ -25,6 +26,7 @@ impl IntoLua for Entries {
             table.set("SafePath", entry.safe_path)?;
             table.set("Size", entry.size)?;
             table.set("CompressedSize", entry.compressed_size)?;
+            table.set("IsEncrypted", entry.encrypted)?;
             if self.with_data && !entry.directory {
                 table.set("Data", Bytes(entry.data))?;
             }

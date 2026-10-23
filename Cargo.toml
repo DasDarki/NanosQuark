@@ -64,7 +64,7 @@ brotli = "9.0.0"
 flate2 = "1.1.10"
 lz4_flex = "0.14.0"
 tar = "0.4.46"
-zip = { version = "9.1.0", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "9.1.0", default-features = false, features = ["deflate-flate2", "aes-crypto"] }
 zstd = { version = "0.14.3", default-features = false }
 
 bs58 = "0.5.1"

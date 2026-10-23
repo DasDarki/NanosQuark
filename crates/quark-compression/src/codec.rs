@@ -236,6 +236,8 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
         )?,
     )?;
 
+    crate::stream::register(lua, &module)?;
+
     module.set(
         "Detect",
         lua.create_function(|_, data: Binary| {

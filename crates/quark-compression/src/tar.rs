@@ -95,6 +95,7 @@ fn read(data: Vec<u8>, max_size: u64, with_data: bool) -> Result<Entries, String
             remaining -= contents.len() as u64;
         }
         entries.push(Entry {
+            encrypted: false,
             safe_path: safe_path(&name),
             size,
             compressed_size: None,

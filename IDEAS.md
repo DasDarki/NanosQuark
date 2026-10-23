@@ -95,8 +95,8 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] LZ4, Zstandard, Gzip, Deflate, Zlib and Brotli for strings and buffers, levels, format detection, decompression limits
 - [x] ZIP create, extract and list in memory, path sanitizing
 - [x] TAR create, extract and list, `.tar.gz` and other compressed archives
-- [ ] Streaming compression for data larger than memory
-- [ ] Encrypted ZIP archives (AES)
+- [x] Streaming compression for data larger than memory (chunk streams and file to file)
+- [x] Encrypted ZIP archives (AES)
 
 ## Math
 
