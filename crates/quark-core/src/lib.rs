@@ -24,5 +24,5 @@ pub use promise::{clock, promise};
 pub use protect::{create_userdata, describe, protect, protect_table};
 pub use registry::{Module, create_root};
 pub use runtime::runtime;
-pub use task::{run, run_async, spawn_blocking, spawn_future};
+pub use task::{Task, run, run_async, spawn_blocking, spawn_future};
 pub use values::{Bytes, Object};

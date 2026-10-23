@@ -59,6 +59,7 @@ local Promise = Quark.Import("Promise")
 | Method | |
 | --- | --- |
 | `:Then(on_fulfilled?, on_rejected?)` | new promise with the handler result, returned promises are adopted |
+| `:Cancel(reason?)` | rejects a pending promise with `reason` (`"cancelled"`), for promises from `Promise.From` the native task is cancelled too. Returns whether the promise was pending |
 | `:Catch(on_rejected)` | shorthand for `:Then(nil, on_rejected)` |
 | `:Finally(callback)` | runs on both outcomes, keeps the result |
 | `:GetState()` | `"pending"`, `"fulfilled"` or `"rejected"` |

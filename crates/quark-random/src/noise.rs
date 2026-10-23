@@ -256,8 +256,8 @@ impl LuaUserData for Noise {
                         })?;
                         quark_core::spawn_blocking(lua, deliver, move || {
                             Ok::<_, String>(quark_core::Bytes(fill(&generator, &area)))
-                        })?;
-                        Ok(LuaMultiValue::new())
+                        })?
+                        .into_lua_multi(lua)
                     }
                 }
             },

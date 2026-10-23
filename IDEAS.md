@@ -17,7 +17,7 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] `Quark.Configure({ TickBudget = 4, WorkerThreads = 4 })` and `quark.toml`, sensible defaults for game servers (do not use every core)
 - [x] Promise objects with `Then`, `Catch`, `Finally`, `All`, `AllSettled`, `Race` and `From` for callback functions
 - [x] Coroutine based await: `Quark.Async(function() local hash = Quark.Await(Crypto.Argon2Hash, password) end)`, `Quark.Delay`, `Quark.Clock`
-- [ ] Cancellation for long running tasks (`task:Cancel()`)
+- [x] Cancellation for long running tasks (`task:Cancel()`, `promise:Cancel()`)
 - [x] `Quark.Buffer`: byte buffer with typed number access in both byte orders, accepted as binary input everywhere
 - [ ] Typed views on buffers for bulk numeric work in native functions (`Buffer:View("f32")`)
 - [ ] Lua Language Server definitions (`---@class`, `---@param`) generated from the Rust modules, for autocompletion in VS Code

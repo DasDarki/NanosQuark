@@ -233,7 +233,8 @@ end
 
 function Promise.From(callback_function, ...)
     local arguments = pack(...)
-    return Promise.New(function(resolve, reject)
+    local task
+    local promise = Promise.New(function(resolve, reject)
         arguments[arguments.n + 1] = function(...)
             local first, second = ...
             if first == nil and second ~= nil then
@@ -242,8 +243,26 @@ function Promise.From(callback_function, ...)
                 resolve(...)
             end
         end
-        callback_function(unpack(arguments, 1, arguments.n + 1))
+        task = callback_function(unpack(arguments, 1, arguments.n + 1))
     end)
+    if type(task) == "userdata" and promise.state == PENDING then
+        promise.task = task
+    end
+    return promise
+end
+
+function Promise:Cancel(reason)
+    if self.state ~= PENDING then
+        return false
+    end
+    local task = self.task
+    self.task = nil
+    if task then
+        pcall(task.Cancel, task)
+    end
+    self.handled = true
+    settle(self, REJECTED, pack(reason or "cancelled"))
+    return true
 end
 
 function Promise.Delay(milliseconds)

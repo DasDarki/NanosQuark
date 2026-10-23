@@ -81,6 +81,13 @@ end)
 
 Async work belongs to the package that started it. Callbacks of a package that was unloaded or reloaded in the meantime are dropped.
 
+Calls with a callback return a task. `task:Cancel()` stops waiting for the result: network requests and other asynchronous operations are aborted, work that already runs on a worker thread (like hashing) finishes in the background, but its callback is never called. `task:IsDone()` and `task:IsCancelled()` report the state.
+
+```lua
+local download = Quark.HTTP.Get(url, function(response) end)
+download:Cancel()
+```
+
 ### Errors
 
 Errors raised by Quark functions are plain strings with the script location, just like errors from Lua itself:
