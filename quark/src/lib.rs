@@ -170,6 +170,16 @@ const MODULES: &[Module] = &[
         name: "Log",
         build: quark_utilities::log,
     },
+    #[cfg(feature = "messaging")]
+    Module {
+        name: "MQTT",
+        build: quark_messaging::mqtt,
+    },
+    #[cfg(feature = "messaging")]
+    Module {
+        name: "NATS",
+        build: quark_messaging::nats,
+    },
     #[cfg(feature = "redis")]
     Module {
         name: "Redis",

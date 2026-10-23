@@ -1,0 +1,20 @@
+[package]
+name = "quark-messaging"
+description = "MQTT and NATS clients for Quark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+quark-core.workspace = true
+quark-net.workspace = true
+mlua.workspace = true
+tokio.workspace = true
+
+async-nats.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+getrandom.workspace = true
+rumqttc.workspace = true
+url.workspace = true

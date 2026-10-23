@@ -14,5 +14,6 @@ mod websocket;
 pub use self::dns::build as net;
 pub use self::http::build as http;
 pub use self::tcp::build as tcp;
+pub use self::tls::{Identity, client_config, identity};
 pub use self::udp::build as udp;
 pub use self::websocket::build as websocket;

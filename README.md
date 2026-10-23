@@ -45,6 +45,7 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | `Compression`, `Zip`, `Tar` | [docs/compression.md](docs/compression.md): LZ4, Zstandard, Gzip, Deflate, Zlib, Brotli and archives in memory |
 | `Net`, `TCP`, `UDP`, `WebSocket`, `HTTP` | [docs/net.md](docs/net.md): DNS, IP ranges, TCP and UDP sockets, WebSocket clients and servers, HTTP servers with routing, async handlers, WebSocket routes and static files, HTTP client, TLS for clients and servers |
 | `Random` | [docs/random.md](docs/random.md): seeded generators, distributions, weighted picking, loot tables with pity, dice and noise |
+| `MQTT`, `NATS` | [docs/messaging.md](docs/messaging.md): MQTT and NATS clients with automatic reconnects, queue groups and request/reply |
 | `Redis` | [docs/redis.md](docs/redis.md): Redis client with commands, pipelines, transactions, pub/sub, streams and cluster support |
 | `Regex`, `Text`, `Template` | [docs/text.md](docs/text.md): regular expressions, Unicode aware text helpers, fuzzy matching, word filters and Jinja templates |
 | `Time` | [docs/time.md](docs/time.md): dates with time zones, parsing and formatting, durations, cron expressions and schedules |

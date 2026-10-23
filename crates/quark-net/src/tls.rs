@@ -132,26 +132,31 @@ fn roots(extra: Option<&str>, include_defaults: bool) -> Result<RootCertStore, S
     Ok(roots)
 }
 
+pub fn client_config(
+    extra_roots: Option<&str>,
+    identity: Option<&Identity>,
+    alpn: &[&[u8]],
+) -> Result<Arc<ClientConfig>, String> {
+    let builder = ClientConfig::builder_with_provider(provider())
+        .with_safe_default_protocol_versions()
+        .map_err(|error| format!("cannot set up TLS: {error}"))?
+        .with_root_certificates(roots(extra_roots, true)?);
+    let mut config = match identity {
+        Some(identity) => builder
+            .with_client_auth_cert(identity.certificates.clone(), identity.key.clone_key())
+            .map_err(|error| format!("invalid client certificate: {error}"))?,
+        None => builder.with_no_client_auth(),
+    };
+    config.alpn_protocols = alpn.iter().map(|protocol| protocol.to_vec()).collect();
+    Ok(Arc::new(config))
+}
+
 fn connector(
     extra_roots: Option<&str>,
     identity: Option<&Identity>,
     alpn: &[&[u8]],
 ) -> Result<TlsConnector, String> {
-    let build = || -> Result<TlsConnector, String> {
-        let builder = ClientConfig::builder_with_provider(provider())
-            .with_safe_default_protocol_versions()
-            .map_err(|error| format!("cannot set up TLS: {error}"))?
-            .with_root_certificates(roots(extra_roots, true)?);
-        let mut config = match identity {
-            Some(identity) => builder
-                .with_client_auth_cert(identity.certificates.clone(), identity.key.clone_key())
-                .map_err(|error| format!("invalid client certificate: {error}"))?,
-            None => builder.with_no_client_auth(),
-        };
-        config.alpn_protocols = alpn.iter().map(|protocol| protocol.to_vec()).collect();
-        Ok(TlsConnector::from(Arc::new(config)))
-    };
-
+    let build = || client_config(extra_roots, identity, alpn).map(TlsConnector::from);
     match (extra_roots, identity, alpn.is_empty()) {
         (None, None, true) => DEFAULT_CONNECTOR.get_or_init(build).clone(),
         (None, None, false) if alpn == [ALPN_HTTP2, ALPN_HTTP1] => {
