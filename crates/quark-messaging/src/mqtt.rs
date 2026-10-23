@@ -170,7 +170,12 @@ fn options_for(url: &str, options: &Options) -> LuaResult<(MqttOptions, String)>
         .unwrap_or_else(|| format!("quark-{}", crate::random_suffix()));
 
     let mut mqtt = MqttOptions::new(client_id.clone(), host, port);
-    mqtt.set_keep_alive(Duration::from_secs(options.get_or("KeepAlive", 30)?));
+    let keep_alive = options.duration_or("KeepAlive", 30_000)?;
+    mqtt.set_keep_alive(if keep_alive.is_zero() {
+        keep_alive
+    } else {
+        Duration::from_secs(keep_alive.as_secs_f64().ceil().max(1.0) as u64)
+    });
     mqtt.set_clean_session(options.get_or("CleanSession", true)?);
     let max_packet_size = options.get_or("MaxPacketSize", 1024 * 1024)?;
     mqtt.set_max_packet_size(max_packet_size, max_packet_size);

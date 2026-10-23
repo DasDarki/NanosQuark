@@ -99,7 +99,7 @@ end)
     local subject = prefix:gsub("/", ".")
 
     Test.It("publishes to listeners and queue groups", function()
-        local client = assert(NATS.Connect(NATS_URL))
+        local client = NATS.Connect(NATS_URL)
         wait_open(client)
 
         local received = {}
@@ -137,7 +137,7 @@ end)
     end)
 
     Test.It("answers requests", function()
-        local client = assert(NATS.Connect(NATS_URL))
+        local client = NATS.Connect(NATS_URL)
         wait_open(client)
         local service = client:Listen(subject .. ".add", function(message)
             local a, b = message.Payload:match("(%d+)%+(%d+)")

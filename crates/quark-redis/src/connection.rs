@@ -382,7 +382,7 @@ impl Endpoint {
             SentinelServerType::Master,
         )
         .map_err(|error| LuaError::runtime(format!("invalid sentinel settings: {error}")))?;
-        let timeout = Duration::from_millis(options.get_or("Timeout", crate::DEFAULT_TIMEOUT)?);
+        let timeout = options.duration_or("Timeout", crate::DEFAULT_TIMEOUT)?;
         Ok(Endpoint {
             target: Target::Sentinel(Arc::new(SentinelShared {
                 client: AsyncMutex::new(client),

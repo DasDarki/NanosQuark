@@ -7,7 +7,7 @@ mqtt:Subscribe("Message", function(topic, payload)
     Console.Log(topic .. ": " .. payload)
 end)
 
-local nats = assert(Quark.NATS.Connect("nats://10.0.0.5:4222"))
+local nats = Quark.NATS.Connect("nats://10.0.0.5:4222")
 nats:Listen("servers.*.status", function(message)
     Console.Log(message.Subject .. " is " .. message.Payload)
 end)
@@ -23,7 +23,7 @@ Clients for two message brokers: `MQTT` for IoT devices, home automation and das
 | --- | --- |
 | `ClientID` | identifies the client at the broker, random by default. Two clients with the same ID disconnect each other |
 | `Username`, `Password` | credentials |
-| `KeepAlive` | seconds between pings (30) |
+| `KeepAlive` | time between pings, rounded up to whole seconds (`"30s"`) |
 | `CleanSession` | start without stored subscriptions and messages (`true`). With `false` the broker keeps QoS 1 and 2 messages for the client while it is offline |
 | `Will` | `{ Topic, Payload, QoS, Retain }` published by the broker when the client disappears without closing, for example `"offline"` on a status topic |
 | `MaxPacketSize` | largest message in bytes (1 MiB) |
@@ -50,13 +50,13 @@ Retained messages are stored by the broker and delivered to every new subscriber
 
 ## NATS
 
-`NATS.Connect(urls?, options?)` connects to a NATS server or cluster. `urls` is a URL like `nats://host:4222` (the default is `nats://127.0.0.1:4222`) or a list of them. It returns a client or `nil, message` for invalid settings. The connection is made in the background and reestablished after failures.
+`NATS.Connect(urls?, options?)` connects to a NATS server or cluster. `urls` is a URL like `nats://host:4222` (the default is `nats://127.0.0.1:4222`) or a list of them. It returns a client right away, raises an error for invalid settings and connects in the background, reconnecting after failures.
 
 | Option | |
 | --- | --- |
 | `Name` | client name shown in the server monitoring (`"quark"`) |
 | `Username`, `Password` or `Token` | credentials |
-| `Timeout` | connection and default request timeout in milliseconds (5000) |
+| `Timeout` | connection and default request timeout (5000 milliseconds) |
 | `TLS`, `CA`, `Certificate`, `PrivateKey` | require TLS and client certificates like for [Net](net.md#tls) |
 
 | Method | |

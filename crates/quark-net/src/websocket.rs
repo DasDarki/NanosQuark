@@ -196,7 +196,7 @@ fn connect(lua: &Lua, (url, options): (String, Options)) -> LuaResult<LuaAnyUser
         }
     }
 
-    let timeout = Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?);
+    let timeout = options.duration_or("Timeout", DEFAULT_TIMEOUT)?;
     let tls = if secure {
         tls::client(&options, &host, true)?
     } else {
@@ -223,7 +223,7 @@ fn connect(lua: &Lua, (url, options): (String, Options)) -> LuaResult<LuaAnyUser
                     Ok((socket, local, remote)) => {
                         attempt = 0;
                         connection.open(local, remote);
-                        emitter.emit("Open", ());
+                        emitter.emit("Connect", ());
                         let ending = drive(socket, &emitter, &mut commands).await;
                         if ending.requested || reconnect.is_none() || connection.is_finished() {
                             break (ending.code, ending.reason);
@@ -300,8 +300,8 @@ impl Reconnect {
             }
         };
         let reconnect = Reconnect {
-            initial_delay: settings.get_or("InitialDelay", 1000.0)?,
-            max_delay: settings.get_or("MaxDelay", 30_000.0)?,
+            initial_delay: settings.duration_or("InitialDelay", 1000)?.as_secs_f64() * 1000.0,
+            max_delay: settings.duration_or("MaxDelay", 30_000)?.as_secs_f64() * 1000.0,
             multiplier: settings.get_or("Multiplier", 2.0)?,
             max_attempts: settings.get("MaxAttempts")?,
         };

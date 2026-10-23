@@ -107,7 +107,7 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
 
 fn connect(lua: &Lua, (host, port, options): (String, u16, Options)) -> LuaResult<LuaAnyUserData> {
     let (framing, max_frame_size) = Framing::from_options(&options)?;
-    let timeout = Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?);
+    let timeout = options.duration_or("Timeout", DEFAULT_TIMEOUT)?;
     let tls = tls::client(&options, &host, false)?;
 
     let (connection, commands) = Connection::new(|| Command::Close);

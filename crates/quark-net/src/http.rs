@@ -585,7 +585,7 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
         max_body_size: options.get_or("MaxBodySize", DEFAULT_MAX_BODY_SIZE)?,
         max_message_size: options
             .get_or("MaxMessageSize", crate::framing::DEFAULT_MAX_FRAME_SIZE)?,
-        timeout: Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?),
+        timeout: options.duration_or("Timeout", DEFAULT_TIMEOUT)?,
         compression: compression_settings(&options)?,
     };
 

@@ -99,7 +99,7 @@ pub fn create(lua: &Lua, (target, options): (LuaValue, Options)) -> LuaResult<Lu
         }
     }
     let count = options.get_or("Count", DEFAULT_COUNT)?;
-    let block = options.get_or("Block", DEFAULT_BLOCK)?;
+    let block = options.duration_or("Block", DEFAULT_BLOCK)?.as_millis() as u64;
 
     let (commands, mut receiver) = unbounded_channel();
     let shared = Arc::new(Shared {

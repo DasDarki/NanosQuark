@@ -181,7 +181,7 @@ fn spec(
         url,
         headers,
         body,
-        timeout: Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?),
+        timeout: options.duration_or("Timeout", DEFAULT_TIMEOUT)?,
         max_body_size: options.get_or("MaxBodySize", DEFAULT_MAX_BODY_SIZE)?,
         max_redirects: if options.get_or("FollowRedirects", true)? {
             options.get_or("MaxRedirects", DEFAULT_MAX_REDIRECTS)?

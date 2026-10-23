@@ -88,6 +88,10 @@ local download = Quark.HTTP.Get(url, function(response) end)
 download:Cancel()
 ```
 
+### Durations
+
+Options for times like `Timeout`, delays, TTLs and windows take milliseconds or a text with units: `"250ms"`, `"5s"`, `"1m 30s"`, `"2h"`, `"1d"`. Results are milliseconds unless a function says otherwise.
+
 ### Errors
 
 Errors raised by Quark functions are plain strings with the script location, just like errors from Lua itself:

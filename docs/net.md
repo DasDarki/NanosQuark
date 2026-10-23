@@ -170,7 +170,7 @@ end)
 
 | Function | |
 | --- | --- |
-| `WebSocket.Connect(url, options?)` | `ws://` or `wss://` client, emits `Open`, `Message(data, binary)`, `Error(message)`, `Close(code, reason)` |
+| `WebSocket.Connect(url, options?)` | `ws://` or `wss://` client, emits `Connect`, `Message(data, binary)`, `Error(message)`, `Close(code, reason)` |
 | `WebSocket.Listen(port, options?)` | server, or `nil, message`. Emits `Connection(socket, request)`, `Error(message)`, `Close(reason)` |
 
 | Option | | |
@@ -209,11 +209,11 @@ With `Reconnect = true` or a table of settings a client reconnects whenever the 
 | `Multiplier` | growth of the delay per attempt (2) |
 | `MaxAttempts` | give up after this many attempts in a row, unlimited by default |
 
-Delays vary randomly by up to 20 percent so that many clients do not reconnect at the same moment. A connection loss emits `Disconnect(code, reason)` instead of `Close`, every attempt emits `Reconnect(attempt, delay)` and a successful attempt emits `Open` again. Messages sent while reconnecting are queued and sent once the connection is back. `Close` is only emitted at the very end: after `:Close()`, when the package unloads or when `MaxAttempts` is exceeded.
+Delays vary randomly by up to 20 percent so that many clients do not reconnect at the same moment. A connection loss emits `Disconnect(code, reason)` instead of `Close`, every attempt emits `Reconnect(attempt, delay)` and a successful attempt emits `Connect` again. Messages sent while reconnecting are queued and sent once the connection is back. `Close` is only emitted at the very end: after `:Close()`, when the package unloads or when `MaxAttempts` is exceeded.
 
 ```lua
 local socket = Quark.WebSocket.Connect("wss://events.example.com", { Reconnect = { MaxDelay = 10000 } })
-socket:Subscribe("Open", function() socket:Send("subscribe") end)
+socket:Subscribe("Connect", function() socket:Send("subscribe") end)
 socket:Subscribe("Disconnect", function(code) Console.Warn("lost connection: " .. code) end)
 ```
 

@@ -77,7 +77,7 @@ pub fn settings(url: Option<String>, options: &Options) -> LuaResult<Settings> {
 
     Ok(Settings {
         client,
-        timeout: Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?),
+        timeout: options.duration_or("Timeout", DEFAULT_TIMEOUT)?,
     })
 }
 

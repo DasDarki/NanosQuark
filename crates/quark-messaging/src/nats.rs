@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, OnceLock};
-use std::time::Duration;
 
 use async_nats::{Client, ConnectOptions, Event, HeaderMap, Message, Request};
 use bytes::Bytes as NatsBytes;
@@ -290,7 +289,7 @@ impl LuaUserData for NatsClient {
             )| {
                 let (options, callback) = options_and_callback(options, callback)?;
                 let name = subject(&name)?;
-                let timeout = Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?);
+                let timeout = options.duration_or("Timeout", DEFAULT_TIMEOUT)?;
                 let mut request = Request::new()
                     .payload(NatsBytes::from(payload.0))
                     .timeout(Some(timeout));
@@ -338,7 +337,7 @@ impl LuaUserData for NatsClient {
     }
 }
 
-fn connect(lua: &Lua, (servers, options): (LuaValue, Options)) -> LuaResult<LuaMultiValue> {
+fn connect(lua: &Lua, (servers, options): (LuaValue, Options)) -> LuaResult<LuaAnyUserData> {
     let servers: Vec<String> = match servers {
         LuaNil => vec!["nats://127.0.0.1:4222".to_owned()],
         LuaValue::String(url) => vec![url.to_str()?.to_owned()],
@@ -374,9 +373,7 @@ fn connect(lua: &Lua, (servers, options): (LuaValue, Options)) -> LuaResult<LuaM
     let mut connect_options = ConnectOptions::new()
         .name(options.get_or("Name", "quark".to_owned())?)
         .retry_on_initial_connect()
-        .connection_timeout(Duration::from_millis(
-            options.get_or("Timeout", DEFAULT_TIMEOUT)?,
-        ));
+        .connection_timeout(options.duration_or("Timeout", DEFAULT_TIMEOUT)?);
     if let Some(token) = options.get::<String>("Token")? {
         connect_options = connect_options.token(token);
     }
@@ -437,12 +434,9 @@ fn connect(lua: &Lua, (servers, options): (LuaValue, Options)) -> LuaResult<LuaM
         }
     });
 
-    let client = match runtime().block_on(connect_options.connect(addresses)) {
-        Ok(client) => client,
-        Err(error) => {
-            return (LuaNil, format!("cannot connect to NATS: {error}")).into_lua_multi(lua);
-        }
-    };
+    let client = runtime()
+        .block_on(connect_options.connect(addresses))
+        .map_err(|error| LuaError::runtime(format!("cannot set up the NATS client: {error}")))?;
     let shared = Arc::new(Shared {
         state: Arc::clone(&state),
         client,
@@ -470,7 +464,7 @@ fn connect(lua: &Lua, (servers, options): (LuaValue, Options)) -> LuaResult<LuaM
     {
         emitter.emit("Connect", ());
     }
-    object.into_lua_multi(lua)
+    Ok(object)
 }
 
 pub fn build(lua: &Lua) -> LuaResult<LuaTable> {

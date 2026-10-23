@@ -20,7 +20,7 @@ pub use config::{
 pub use dispatcher::{Dispatcher, Resource, package_environment, report_error};
 pub use events::{Emitter, add_event_methods, create_object, emit_now, object_state};
 pub use library::pin_library;
-pub use options::{Options, options_and_callback};
+pub use options::{Options, options_and_callback, parse_duration};
 pub use promise::{clock, promise};
 pub use protect::{create_userdata, describe, protect, protect_table};
 pub use registry::{Module, create_root};
