@@ -19,7 +19,7 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] Coroutine based await: `Quark.Async(function() local hash = Quark.Await(Crypto.Argon2Hash, password) end)`, `Quark.Delay`, `Quark.Clock`
 - [x] Cancellation for long running tasks (`task:Cancel()`, `promise:Cancel()`)
 - [x] `Quark.Buffer`: byte buffer with typed number access in both byte orders, accepted as binary input everywhere
-- [ ] Typed views on buffers for bulk numeric work in native functions (`Buffer:View("f32")`)
+- [x] Typed views on buffers for bulk numeric work in native functions (`Buffer:View("f32")`)
 - [ ] Lua Language Server definitions (`---@class`, `---@param`) generated from the Rust modules, for autocompletion in VS Code
 - [ ] CI: build Linux and Windows, assemble the package, attach a zip to releases
 - [ ] Binary size: the module is about 12 MB, try `opt-level = "s"`, fewer default modules or splitting rarely used modules into separate packages

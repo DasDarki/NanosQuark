@@ -68,3 +68,30 @@ local packet = Buffer.New()
 local kind = packet:Read("u8", 0)
 local id = packet:Read("u16be", 1)
 ```
+
+## Views
+
+`buffer:View(type, offset?, count?)` looks at the buffer as an array of numbers of one type, like `"f32"` or `"u16be"`. `offset` is where the view starts (the beginning), `count` the number of values (as many as fit). Views read and write the buffer directly, changes are visible through both.
+
+```lua
+local heights = noise:Fill(256, 256)
+local view = heights:View("f32le")
+local highest, position = view:Max()
+view[view:GetBuffer():GetIndexBase()] = 0
+```
+
+Values are indexed like the buffer, starting at its [index base](#index-base). `view[index]` returns `nil` outside of the view and assigning raises an error, `#view` is the number of values.
+
+| Method | |
+| --- | --- |
+| `:Get(index)`, `:Set(index, value)` | single values, errors outside of the view |
+| `:ToTable()`, `:FromTable(list)` | all values as a list / write a list from the start |
+| `:Fill(value)` | set every value |
+| `:Scale(factor, offset?)` | multiply every value and add `offset`, integers are rounded |
+| `:Sum()`, `:Average()` | sum and average, `Average` is `nil` for empty views |
+| `:Min()`, `:Max()` | smallest / largest value and its index, `nil` for empty views |
+| `:Sort(descending?)` | sort the values in place |
+| `:GetCount()`, `:GetType()`, `:GetBuffer()` | |
+
+Bulk operations run natively and are much faster than looping in Lua over large buffers, for example to analyze a generated height map. A view notices when its buffer becomes too small after `Resize` and raises an error, create a new view then.
+

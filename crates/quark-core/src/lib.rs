@@ -1,4 +1,5 @@
 mod buffer;
+mod buffer_view;
 mod config;
 mod dispatcher;
 mod events;

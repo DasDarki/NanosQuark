@@ -6,7 +6,7 @@ const MAX_BUFFER_SIZE: usize = 256 * 1024 * 1024;
 
 pub struct Buffer {
     pub data: Vec<u8>,
-    base: i64,
+    pub(crate) base: i64,
 }
 
 struct IndexBases(LuaTable);
@@ -51,13 +51,13 @@ enum Kind {
 }
 
 #[derive(Clone, Copy)]
-struct NumberType {
+pub(crate) struct NumberType {
     kind: Kind,
     big_endian: bool,
 }
 
 impl NumberType {
-    fn parse(name: &str) -> LuaResult<Self> {
+    pub(crate) fn parse(name: &str) -> LuaResult<Self> {
         let lower = name.to_ascii_lowercase();
         let (base, big_endian) = if let Some(base) = lower.strip_suffix("be") {
             (base, true)
@@ -88,7 +88,7 @@ impl NumberType {
         Ok(NumberType { kind, big_endian })
     }
 
-    fn size(self) -> usize {
+    pub(crate) fn size(self) -> usize {
         match self.kind {
             Kind::U8 | Kind::I8 => 1,
             Kind::U16 | Kind::I16 => 2,
@@ -97,7 +97,7 @@ impl NumberType {
         }
     }
 
-    fn read(self, bytes: &[u8]) -> LuaValue {
+    pub(crate) fn read(self, bytes: &[u8]) -> LuaValue {
         macro_rules! decode {
             ($type:ty) => {{
                 let array = bytes
@@ -131,7 +131,7 @@ impl NumberType {
         }
     }
 
-    fn encode(self, value: &LuaValue) -> LuaResult<Vec<u8>> {
+    pub(crate) fn encode(self, value: &LuaValue) -> LuaResult<Vec<u8>> {
         macro_rules! encode {
             ($value:expr) => {{
                 let value = $value;
@@ -502,6 +502,13 @@ impl LuaUserData for Buffer {
         methods.add_method("Clone", |_, buffer, ()| {
             Ok(Object(buffer.derive(buffer.data.clone())))
         });
+
+        methods.add_function(
+            "View",
+            |lua, (this, kind, offset, count): (LuaAnyUserData, String, Option<i64>, Option<usize>)| {
+                crate::buffer_view::create(lua, this, &kind, offset, count)
+            },
+        );
 
         methods.add_meta_method(LuaMetaMethod::Len, |_, buffer, ()| Ok(buffer.data.len()));
         methods.add_meta_method(LuaMetaMethod::Eq, |_, buffer, other: LuaAnyUserData| {
