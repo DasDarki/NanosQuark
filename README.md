@@ -182,7 +182,17 @@ These details were verified against server version 1.160.0 and shape the design:
 tools/test-host/run.sh
 ```
 
-runs the test suite in [packages/quark-test](packages/quark-test) on Linux without a nanos world server. The Redis tests run when a Redis server answers at `QUARK_REDIS_URL` (default `redis://127.0.0.1:16379`), the cluster tests when a cluster answers at `QUARK_REDIS_CLUSTER` (comma separated, default ports 17000 to 17002), and are skipped otherwise, see [docs/testing.md](docs/testing.md#running-tests-without-a-server). The same package runs inside the server as well.
+runs the test suite in [packages/quark-test](packages/quark-test) on Linux without a nanos world server, see [docs/testing.md](docs/testing.md#running-tests-without-a-server). The same package runs inside the server as well. Tests for external services run when the service is available and are skipped otherwise:
+
+| Variable | Default | Tests |
+| --- | --- | --- |
+| `QUARK_REDIS_URL` | `redis://127.0.0.1:16379` | Redis, shared rate limits and caches |
+| `QUARK_REDIS_CLUSTER` | ports 17000 to 17002 on localhost, comma separated | Redis Cluster |
+| `QUARK_REDIS_SENTINELS` | ports 26390 to 26392 on localhost, comma separated, master `mymaster` | Redis Sentinel and failover |
+| `QUARK_MQTT_URL` | none | MQTT |
+| `QUARK_NATS_URL` | none | NATS |
+| `QUARK_GEOIP_DIR` | `geoip-data` | GeoIP with the [MaxMind test databases](https://github.com/maxmind/MaxMind-DB/tree/main/test-data) |
+| `QUARK_TEST_TMP` | `quark-test-logs` | folder for temporary files of the log and compression tests |
 
 The definitions in `library` are checked against the built module with `tools/check-definitions`, a package for the test host. It reports module functions missing from the definitions and declared methods that do not exist:
 
