@@ -20,7 +20,7 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] Cancellation for long running tasks (`task:Cancel()`, `promise:Cancel()`)
 - [x] `Quark.Buffer`: byte buffer with typed number access in both byte orders, accepted as binary input everywhere
 - [x] Typed views on buffers for bulk numeric work in native functions (`Buffer:View("f32")`)
-- [ ] Lua Language Server definitions (`---@class`, `---@param`) generated from the Rust modules, for autocompletion in VS Code
+- [x] Lua Language Server definitions (`---@class`, `---@param`) for autocompletion in VS Code, checked against the module by `tools/check-definitions`
 - [ ] CI: build Linux and Windows, assemble the package, attach a zip to releases
 - [x] Binary size: stripped, fat LTO and size optimization for code that is not performance critical (34 MB down to 22 MB on Linux), modules can be removed with Cargo features
 - [x] Test harness: standalone Lua host with `Server`/`Console`/`Package` stubs, so module tests run in CI without a nanos world server

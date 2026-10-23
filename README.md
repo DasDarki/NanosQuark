@@ -100,6 +100,16 @@ Errors raised by Quark functions are plain strings with the script location, jus
 [my-package/Server/Index.lua]:18: Invalid symbol 33, offset 0.
 ```
 
+### Editor support
+
+The `library` folder contains [Lua Language Server](https://luals.github.io/) definitions for all modules, with parameter and return types and short descriptions. VS Code (with the Lua extension) and other editors using the Lua Language Server then complete Quark functions and warn about wrong arguments. Copy the folder into your project or point to it in a `.luarc.json` next to your packages:
+
+```json
+{
+    "workspace.library": ["path/to/NanosQuark/library"]
+}
+```
+
 ## Building
 
 ```sh
@@ -173,6 +183,12 @@ tools/test-host/run.sh
 ```
 
 runs the test suite in [packages/quark-test](packages/quark-test) on Linux without a nanos world server. The Redis tests run when a Redis server answers at `QUARK_REDIS_URL` (default `redis://127.0.0.1:16379`), the cluster tests when a cluster answers at `QUARK_REDIS_CLUSTER` (comma separated, default ports 17000 to 17002), and are skipped otherwise, see [docs/testing.md](docs/testing.md#running-tests-without-a-server). The same package runs inside the server as well.
+
+The definitions in `library` are checked against the built module with `tools/check-definitions`, a package for the test host. It reports module functions missing from the definitions and declared methods that do not exist:
+
+```sh
+target/test-host/host tools/test-host/host.lua target/release tools/check-definitions 30
+```
 
 ## License
 
