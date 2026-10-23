@@ -968,3 +968,90 @@ Test.Describe("HTTP compression", function()
         Expect(function() HTTP.Listen(0, { Compression = { Encodings = { "lzma" } } }) end):ToThrow("unknown encoding")
     end)
 end)
+
+Test.Describe("HTTP/2 and mutual TLS", function()
+    local Net, HTTP = Quark.Net, Quark.HTTP
+    local ca_certificate, ca_key = Net.CreateCertificateAuthority("Quark Test CA")
+    local ca = { Certificate = ca_certificate, PrivateKey = ca_key }
+    local server_certificate, server_key = Net.CreateCertificate("localhost", { CA = ca })
+    local client_certificate, client_key = Net.CreateCertificate("player-1", { CA = ca, Client = true })
+
+    local function start(tls, options)
+        options = options or {}
+        options.Host = "127.0.0.1"
+        options.TLS = tls
+        local server = assert(HTTP.Listen(0, options))
+        server:Get("/who", function(request, response)
+            local certificate = request.ClientCertificate
+            response:Json({
+                version = request.Version,
+                subject = certificate and certificate.Subject or "none",
+                issuer = certificate and certificate.Issuer or "none",
+                fingerprint = certificate and certificate.Fingerprint or "none",
+            })
+        end)
+        return server, "https://localhost:" .. server:GetPort() .. "/who"
+    end
+
+    Test.It("negotiates HTTP/2 over TLS", function()
+        local server, url = start({ Certificate = server_certificate, PrivateKey = server_key })
+        local response = Quark.Await(HTTP.Get, url, { CA = ca_certificate })
+        Expect(response.Status):ToBe(200)
+        Expect(response.Version):ToBe("HTTP/2")
+        Expect(response:Json().version):ToBe("HTTP/2")
+
+        local old = Quark.Await(HTTP.Get, url, { CA = ca_certificate, HTTP2 = false })
+        Expect(old.Version):ToBe("HTTP/1.1")
+        Expect(old:Json().version):ToBe("HTTP/1.1")
+        server:Close()
+
+        local http1_server, http1_url = start({ Certificate = server_certificate, PrivateKey = server_key }, { HTTP2 = false })
+        Expect(Quark.Await(HTTP.Get, http1_url, { CA = ca_certificate }).Version):ToBe("HTTP/1.1")
+        http1_server:Close()
+    end)
+
+    Test.It("requires client certificates", function()
+        local server, url = start({ Certificate = server_certificate, PrivateKey = server_key, ClientCA = ca_certificate })
+        local response = Quark.Await(HTTP.Get, url, { CA = ca_certificate, Certificate = client_certificate, PrivateKey = client_key })
+        local body = response:Json()
+        Expect(body.subject):ToBe("player-1")
+        Expect(body.issuer):ToBe("Quark Test CA")
+        Expect(#body.fingerprint):ToBe(64)
+
+        Expect(function() Quark.Await(HTTP.Get, url, { CA = ca_certificate }) end):ToThrow("failed")
+
+        local stranger_certificate, stranger_key = Net.CreateCertificate("stranger", { Client = true })
+        Expect(function()
+            Quark.Await(HTTP.Get, url, { CA = ca_certificate, Certificate = stranger_certificate, PrivateKey = stranger_key })
+        end):ToThrow("failed")
+        server:Close()
+
+        local optional, optional_url = start({ Certificate = server_certificate, PrivateKey = server_key, ClientCA = ca_certificate, RequireClientCertificate = false })
+        Expect(Quark.Await(HTTP.Get, optional_url, { CA = ca_certificate }):Json().subject):ToBe("none")
+        optional:Close()
+        Expect(function() HTTP.Get(url, { Certificate = client_certificate }) end):ToThrow("both Certificate and PrivateKey")
+    end)
+
+    Test.It("exposes client certificates on TCP connections", function()
+        local server = assert(Quark.TCP.Listen(0, {
+            Host = "127.0.0.1",
+            Framing = "line",
+            TLS = { Certificate = server_certificate, PrivateKey = server_key, ClientCA = ca_certificate },
+        }))
+        server:Subscribe("Connection", function(client)
+            client:Send(client:GetPeerCertificate().Subject)
+        end)
+        local client = Quark.TCP.Connect("127.0.0.1", server:GetPort(), {
+            Framing = "line",
+            TLS = true,
+            ServerName = "localhost",
+            CA = ca_certificate,
+            Certificate = client_certificate,
+            PrivateKey = client_key,
+        })
+        Expect(Quark.Await(next_event(client, "Data"))):ToBe("player-1")
+        Expect(client:GetPeerCertificate()):ToBeNil()
+        client:Close()
+        server:Close()
+    end)
+end)

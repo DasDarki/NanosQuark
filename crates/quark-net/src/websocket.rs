@@ -426,9 +426,11 @@ pub(crate) fn adopt(
     lua: &Lua,
     socket: WebSocketStream<BoxedIo>,
     remote: Option<std::net::SocketAddr>,
+    peer: Option<crate::tls::PeerCertificate>,
 ) -> LuaResult<LuaAnyUserData> {
     let (connection, commands) = Connection::new(close_command);
     connection.open(None, remote);
+    connection.set_peer(peer);
     let object = create_object(
         lua,
         WebSocket {
@@ -457,7 +459,7 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
     let path = options.get::<String>("Path")?;
     let max_connections = options.get_or("MaxConnections", DEFAULT_MAX_CONNECTIONS)?;
     let config = config(&options)?;
-    let acceptor = tls::server(&options)?;
+    let acceptor = tls::server(&options, &[])?;
 
     let listener = match bind_tcp(&host, port) {
         Ok(listener) => listener,
@@ -500,22 +502,24 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                         let acceptor = acceptor.clone();
                         runtime().spawn(async move {
                             let local = socket.local_addr().ok();
-                            let io = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_TIMEOUT)).await {
-                                Ok(io) => io,
+                            let accepted = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_TIMEOUT)).await {
+                                Ok(accepted) => accepted,
                                 Err(error) => {
                                     emitter.emit("Error", error);
                                     active.fetch_sub(1, Ordering::AcqRel);
                                     return;
                                 }
                             };
-                            let accepted = accept(io, path, config).await;
-                            let Ok((socket, request)) = accepted else {
+                            let peer = accepted.peer;
+                            let handshake = accept(accepted.io, path, config).await;
+                            let Ok((socket, request)) = handshake else {
                                 active.fetch_sub(1, Ordering::AcqRel);
                                 return;
                             };
                             emitter.with(move |lua, server| {
                                 let (connection, commands) = Connection::new(close_command);
                                 connection.open(local, Some(remote));
+                                connection.set_peer(peer);
                                 let client = create_object(lua, WebSocket { connection: Arc::clone(&connection) })?;
                                 let client_emitter = Emitter::new(lua, &client)?;
                                 connection.track(lua, &client_emitter)?;

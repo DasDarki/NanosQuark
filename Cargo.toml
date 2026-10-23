@@ -76,15 +76,16 @@ futures-util = { version = "0.3", default-features = false, features = ["sink", 
 hickory-resolver = "0.26.3"
 ipnet = "2.12.2"
 multer = "3.1.0"
-rcgen = "0.14.10"
+rcgen = { version = "0.14.10", features = ["x509-parser"] }
+x509-parser = "0.18"
 tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
 tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
 webpki-roots = "1.0.11"
 
 bytes = "1.12.1"
 http-body-util = "0.1.5"
-hyper = { version = "1.12.0", features = ["client", "server", "http1"] }
-hyper-util = { version = "0.1.21", features = ["tokio"] }
+hyper = { version = "1.12.0", features = ["client", "server", "http1", "http2"] }
+hyper-util = { version = "0.1.21", features = ["tokio", "server-auto", "http1", "http2"] }
 
 redis = { version = "1.8.0", default-features = false, features = ["tokio-comp", "connection-manager", "cluster-async", "tokio-rustls-comp", "tls-rustls-webpki-roots", "script"] }
 

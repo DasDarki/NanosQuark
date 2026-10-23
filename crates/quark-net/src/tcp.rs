@@ -205,7 +205,7 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
     let host = options.get_or("Host", "0.0.0.0".to_owned())?;
     let (framing, max_frame_size) = Framing::from_options(&options)?;
     let max_connections = options.get_or("MaxConnections", DEFAULT_MAX_CONNECTIONS)?;
-    let acceptor = tls::server(&options)?;
+    let acceptor = tls::server(&options, &[])?;
 
     let listener = match bind_tcp(&host, port) {
         Ok(listener) => listener,
@@ -248,8 +248,8 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                         active.fetch_add(1, Ordering::AcqRel);
 
                         runtime().spawn(async move {
-                        let io = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_TIMEOUT)).await {
-                            Ok(io) => io,
+                        let accepted = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_TIMEOUT)).await {
+                            Ok(accepted) => accepted,
                             Err(error) => {
                                 emitter.emit("Error", error);
                                 active.fetch_sub(1, Ordering::AcqRel);
@@ -259,6 +259,8 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                         emitter.with(move |lua, server| {
                             let (connection, commands) = Connection::new(|| Command::Close);
                             connection.open(local, Some(remote));
+                            connection.set_peer(accepted.peer);
+                            let io = accepted.io;
                             let client = create_object(lua, TcpSocket { connection: Arc::clone(&connection), framing, max_frame_size })?;
                             let client_emitter = Emitter::new(lua, &client)?;
                             connection.track(lua, &client_emitter)?;

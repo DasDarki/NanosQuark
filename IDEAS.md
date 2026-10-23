@@ -71,7 +71,7 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] HTTP client with redirects, timeouts, size limits and streaming
 - [x] TLS for servers, custom root certificates, self signed certificates for development
 - [x] WebSocket reconnect with exponential backoff and jitter
-- [ ] HTTP/2, response compression, client certificates (mutual TLS)
+- [x] HTTP/2, response compression, client certificates (mutual TLS), certificate authorities
 - [x] Redis client with commands, pipelines, transactions, pub/sub and automatic reconnects
 - [x] Redis streams with consumer groups, a blocking stream reader and cluster support
 - [ ] MQTT / NATS messaging, Redis Sentinel

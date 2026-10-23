@@ -36,6 +36,8 @@ Every object emits `Error(message)` for problems and exactly one `Close` at the 
 | `Net.IsPrivate(ip)` | private, carrier grade NAT, link local and unique local ranges |
 | `Net.IsLoopback(ip)` | `127.0.0.0/8` and `::1` |
 | `Net.CreateSelfSignedCertificate(names)` | `certificate, private_key` as PEM for one host name or a list, for development and tests |
+| `Net.CreateCertificateAuthority(name?, options?)` | `certificate, private_key` of a new certificate authority, option `Days` (3650) |
+| `Net.CreateCertificate(names, options?)` | `certificate, private_key` signed by `CA = { Certificate, PrivateKey }` (self signed without), options `Client` for client certificates and `Days` (365) |
 
 `MX` records are `{ Priority, Exchange }`, `SRV` records `{ Priority, Weight, Port, Target }`, all other records are strings. Lookups without a callback block until the DNS server answers, use a callback or `Quark.Await`.
 
@@ -54,7 +56,9 @@ Outgoing connections verify the server certificate against the Mozilla root stor
 | `TLS = true` | TCP.Connect | encrypt the connection (`wss://` and `https://` URLs always do) |
 | `ServerName` | TCP.Connect | name the certificate has to be valid for, defaults to the host |
 | `CA` | clients | additional trusted certificates as PEM, for self signed or internal certificates |
+| `Certificate`, `PrivateKey` | clients | client certificate for servers that require one (mutual TLS) |
 | `TLS = { Certificate, PrivateKey }` | servers | serve TLS (HTTPS, WSS, TLS over TCP), the certificate may contain the whole chain |
+| `ClientCA`, `RequireClientCertificate` | servers, inside `TLS` | only accept clients with a certificate signed by these CA certificates (PEM). With `RequireClientCertificate = false` clients without a certificate are accepted too |
 
 ```lua
 local certificate, private_key = Quark.Net.CreateSelfSignedCertificate("localhost")
@@ -64,6 +68,32 @@ local response = Quark.Await(Quark.HTTP.Get, "https://localhost:8443/", { CA = c
 ```
 
 TLS 1.2 and 1.3 are supported, handshakes time out after 10 seconds. Certificates that do not match their private key are rejected when the server starts.
+
+### Mutual TLS
+
+With mutual TLS both sides prove who they are, for example game servers talking to a central backend without passwords. Servers with `ClientCA` read the client certificate of every connection: `connection:GetPeerCertificate()` on TCP and WebSocket connections and `request.ClientCertificate` in HTTP handlers return `{ Subject, Issuer, Fingerprint, NotAfter, PEM }`, or `nil` without a certificate. `Subject` and `Issuer` are the common names, `Fingerprint` the SHA-256 hash of the certificate in hex, `NotAfter` the expiry as Unix time.
+
+```lua
+local ca_certificate, ca_key = Quark.Net.CreateCertificateAuthority("My Network")
+local ca = { Certificate = ca_certificate, PrivateKey = ca_key }
+local server_certificate, server_key = Quark.Net.CreateCertificate("backend.example.com", { CA = ca })
+local client_certificate, client_key = Quark.Net.CreateCertificate("game-server-1", { CA = ca, Client = true })
+
+local backend = Quark.HTTP.Listen(8443, {
+    TLS = { Certificate = server_certificate, PrivateKey = server_key, ClientCA = ca_certificate },
+})
+backend:Get("/whoami", function(request, response)
+    response:Text(request.ClientCertificate.Subject)
+end)
+
+Quark.HTTP.Get("https://backend.example.com:8443/whoami", {
+    CA = ca_certificate,
+    Certificate = client_certificate,
+    PrivateKey = client_key,
+}, function(response) end)
+```
+
+Keep the CA private key offline or at least out of the game server, it can create certificates for anyone.
 
 ## TCP
 
@@ -206,6 +236,7 @@ Every request runs in its own `Quark.Async` coroutine, so handlers can `Quark.Aw
 | `Timeout` | requests without a response after this many milliseconds are answered with 504 (30000) |
 | `MaxConnections` | further connections are dropped (1024) |
 | `MaxMessageSize` | largest WebSocket message on WebSocket routes (16 MiB) |
+| `HTTP2` | also speak HTTP/2 (`true`), negotiated through TLS for HTTPS, plain HTTP/2 needs a client that starts with it |
 | `TLS` | serve HTTPS, see [TLS](#tls) |
 | `Compression` | compress responses, see [Compression](#compression) |
 
@@ -231,6 +262,8 @@ Patterns start with `/`. `:name` captures a segment into `request.Params.name`, 
 | `Cookies` | cookies sent by the client, values decoded |
 | `RemoteAddress` | IP address of the client |
 | `IsWebSocket` | whether the request asks for a WebSocket upgrade |
+| `Version` | `"HTTP/1.1"` or `"HTTP/2"` |
+| `ClientCertificate` | the client certificate with [mutual TLS](#mutual-tls), or `nil` |
 | `:Json()` | decoded body, or `nil, message` |
 | `:Form()` | `fields, files` of an `application/x-www-form-urlencoded` or `multipart/form-data` body, or `nil, message`. Files are `{ Field, FileName, ContentType, Data }` |
 | `:GetHeader(name)` | header value, case insensitive |
@@ -328,8 +361,10 @@ nanos world has its own HTTP server on the game port, enabled with `--enable_htt
 | `FollowRedirects`, `MaxRedirects` | follow redirects (`true`, at most 5), 303 and redirected `POST`s continue as `GET` |
 | `CA` | additional trusted certificates, see [TLS](#tls) |
 | `Decompress` | ask for compressed responses and decode them (`true`) |
+| `HTTP2` | use HTTP/2 when an HTTPS server supports it (`true`) |
+| `Certificate`, `PrivateKey` | client certificate for [mutual TLS](#mutual-tls) |
 
-The result is `{ Status, Headers, Body, URL }` with the final URL after redirects, `:Json()` and `:IsSuccess()`. Error statuses like 404 are normal responses, only network problems, timeouts and size limits fail with `nil, message`.
+The result is `{ Status, Version, Headers, Body, URL }` with the final URL after redirects, `:Json()` and `:IsSuccess()`. Error statuses like 404 are normal responses, only network problems, timeouts and size limits fail with `nil, message`.
 
 ```lua
 local response = Quark.Await(Quark.HTTP.Get, "https://api.example.com/players", { Query = { page = 2 } })

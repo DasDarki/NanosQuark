@@ -5,7 +5,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio_rustls::TlsAcceptor;
 
-use crate::tls::ClientTls;
+use crate::tls::{ClientTls, PeerCertificate, peer_certificate};
 
 pub trait Io: AsyncRead + AsyncWrite + Unpin + Send {}
 
@@ -17,6 +17,12 @@ pub struct Connected {
     pub io: BoxedIo,
     pub local: Option<SocketAddr>,
     pub remote: Option<SocketAddr>,
+    pub alpn: Option<Vec<u8>>,
+}
+
+pub struct Accepted {
+    pub io: BoxedIo,
+    pub peer: Option<PeerCertificate>,
 }
 
 pub async fn connect(
@@ -38,6 +44,7 @@ pub async fn connect(
             io: Box::new(stream),
             local,
             remote,
+            alpn: None,
         });
     };
 
@@ -45,10 +52,12 @@ pub async fn connect(
         .await
         .map_err(|_| format!("the TLS handshake with {host}:{port} timed out"))?
         .map_err(|error| format!("the TLS handshake with {host}:{port} failed: {error}"))?;
+    let alpn = stream.get_ref().1.alpn_protocol().map(<[u8]>::to_vec);
     Ok(Connected {
         io: Box::new(stream),
         local,
         remote,
+        alpn,
     })
 }
 
@@ -56,14 +65,21 @@ pub async fn accept(
     stream: TcpStream,
     tls: Option<TlsAcceptor>,
     timeout: Duration,
-) -> Result<BoxedIo, String> {
+) -> Result<Accepted, String> {
     let _ = stream.set_nodelay(true);
-    match tls {
-        None => Ok(Box::new(stream)),
-        Some(acceptor) => tokio::time::timeout(timeout, acceptor.accept(stream))
-            .await
-            .map_err(|_| "the TLS handshake timed out".to_owned())?
-            .map(|stream| Box::new(stream) as BoxedIo)
-            .map_err(|error| format!("the TLS handshake failed: {error}")),
-    }
+    let Some(acceptor) = tls else {
+        return Ok(Accepted {
+            io: Box::new(stream),
+            peer: None,
+        });
+    };
+    let stream = tokio::time::timeout(timeout, acceptor.accept(stream))
+        .await
+        .map_err(|_| "the TLS handshake timed out".to_owned())?
+        .map_err(|error| format!("the TLS handshake failed: {error}"))?;
+    let peer = peer_certificate(stream.get_ref().1);
+    Ok(Accepted {
+        io: Box::new(stream),
+        peer,
+    })
 }

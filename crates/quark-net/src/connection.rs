@@ -4,6 +4,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 use mlua::prelude::*;
 use quark_core::{Emitter, Resource};
+
+use crate::tls::PeerCertificate;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 
 const CONNECTING: u8 = 0;
@@ -16,6 +18,7 @@ pub struct Connection<C> {
     commands: UnboundedSender<C>,
     close_command: fn() -> C,
     addresses: Mutex<(Option<SocketAddr>, Option<SocketAddr>)>,
+    peer: Mutex<Option<PeerCertificate>>,
 }
 
 impl<C: Send + 'static> Connection<C> {
@@ -26,6 +29,7 @@ impl<C: Send + 'static> Connection<C> {
             commands,
             close_command,
             addresses: Mutex::new((None, None)),
+            peer: Mutex::new(None),
         });
         (connection, receiver)
     }
@@ -38,6 +42,20 @@ impl<C: Send + 'static> Connection<C> {
         let _ = self
             .state
             .compare_exchange(CONNECTING, OPEN, Ordering::AcqRel, Ordering::Acquire);
+    }
+
+    pub fn set_peer(&self, peer: Option<PeerCertificate>) {
+        *self
+            .peer
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = peer;
+    }
+
+    pub fn peer(&self) -> Option<PeerCertificate> {
+        self.peer
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 
     pub fn reconnecting(&self) {
@@ -130,6 +148,9 @@ pub fn add_connection_methods<T: Connected + 'static, M: LuaUserDataMethods<T>>(
     });
     methods.add_method("GetLocalAddress", |_, object, ()| {
         Ok(address(object.connection().local_address()))
+    });
+    methods.add_method("GetPeerCertificate", |_, object, ()| {
+        Ok(object.connection().peer())
     });
     quark_core::add_event_methods(methods);
 }

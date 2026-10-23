@@ -9,7 +9,7 @@ use hyper::header::{
     USER_AGENT,
 };
 use hyper::{Method, Request, Response};
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioExecutor, TokioIo};
 use mlua::prelude::*;
 use quark_core::{Binary, Bytes, Emitter, Options, create_object, options_and_callback, runtime};
 use url::Url;
@@ -35,7 +35,26 @@ struct Spec {
     max_body_size: usize,
     max_redirects: usize,
     ca: Option<String>,
+    identity: Option<tls::Identity>,
+    http2: bool,
     decompress: bool,
+}
+
+enum Sender {
+    Http1(hyper::client::conn::http1::SendRequest<Full<HttpBytes>>),
+    Http2(hyper::client::conn::http2::SendRequest<Full<HttpBytes>>),
+}
+
+impl Sender {
+    async fn send(
+        &mut self,
+        request: Request<Full<HttpBytes>>,
+    ) -> hyper::Result<Response<Incoming>> {
+        match self {
+            Sender::Http1(sender) => sender.send_request(request).await,
+            Sender::Http2(sender) => sender.send_request(request).await,
+        }
+    }
 }
 
 enum RequestBody {
@@ -60,6 +79,7 @@ impl IntoLua for Headers {
 
 pub struct ClientResponse {
     status: u16,
+    version: &'static str,
     headers: Headers,
     body: Vec<u8>,
     url: String,
@@ -69,6 +89,7 @@ impl IntoLua for ClientResponse {
     fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
         let table = lua.create_table()?;
         table.set("Status", self.status)?;
+        table.set("Version", self.version)?;
         table.set("Headers", self.headers)?;
         table.set("Body", Bytes(self.body))?;
         table.set("URL", self.url)?;
@@ -168,6 +189,8 @@ fn spec(
             0
         },
         ca: options.get("CA")?,
+        identity: tls::identity(options)?,
+        http2: options.get_or("HTTP2", true)?,
         decompress: options.get_or("Decompress", true)?,
     })
 }
@@ -183,23 +206,51 @@ async fn send(mut spec: Spec) -> Result<(Response<Incoming>, Url), String> {
             .trim_end_matches(']')
             .to_owned();
         let port = spec.url.port_or_known_default().unwrap_or(80);
+        let alpn: &[&[u8]] = if spec.http2 {
+            &[tls::ALPN_HTTP2, tls::ALPN_HTTP1]
+        } else {
+            &[tls::ALPN_HTTP1]
+        };
         let tls = match spec.url.scheme() {
-            "https" => Some(tls::client_for(&host, spec.ca.as_deref())?),
+            "https" => Some(tls::client_for(
+                &host,
+                spec.ca.as_deref(),
+                spec.identity.as_ref(),
+                alpn,
+            )?),
             _ => None,
         };
 
         let connected = stream::connect(&host, port, tls, spec.timeout).await?;
-        let (mut sender, connection) =
-            hyper::client::conn::http1::handshake(TokioIo::new(connected.io))
-                .await
-                .map_err(|error| format!("the HTTP handshake with {host} failed: {error}"))?;
-        runtime().spawn(async move {
-            let _ = connection.await;
-        });
+        let http2 = connected.alpn.as_deref() == Some(tls::ALPN_HTTP2);
+        let handshake_failed =
+            |error: hyper::Error| format!("the HTTP handshake with {host} failed: {error}");
+        let mut sender = if http2 {
+            let (sender, connection) = hyper::client::conn::http2::handshake(
+                TokioExecutor::new(),
+                TokioIo::new(connected.io),
+            )
+            .await
+            .map_err(handshake_failed)?;
+            runtime().spawn(async move {
+                let _ = connection.await;
+            });
+            Sender::Http2(sender)
+        } else {
+            let (sender, connection) =
+                hyper::client::conn::http1::handshake(TokioIo::new(connected.io))
+                    .await
+                    .map_err(handshake_failed)?;
+            runtime().spawn(async move {
+                let _ = connection.await;
+            });
+            Sender::Http1(sender)
+        };
 
-        let target = match spec.url.query() {
-            Some(query) => format!("{}?{query}", spec.url.path()),
-            None => spec.url.path().to_owned(),
+        let target = match (http2, spec.url.query()) {
+            (true, _) => spec.url.to_string(),
+            (false, Some(query)) => format!("{}?{query}", spec.url.path()),
+            (false, None) => spec.url.path().to_owned(),
         };
         let mut request = Request::builder()
             .method(spec.method.clone())
@@ -211,10 +262,12 @@ async fn send(mut spec: Spec) -> Result<(Response<Incoming>, Url), String> {
             Some(port) => format!("{host}:{port}"),
             None => host.clone(),
         };
-        headers.insert(
-            HOST,
-            HeaderValue::from_str(&authority).map_err(|error| error.to_string())?,
-        );
+        if !http2 {
+            headers.insert(
+                HOST,
+                HeaderValue::from_str(&authority).map_err(|error| error.to_string())?,
+            );
+        }
         headers.insert(USER_AGENT, HeaderValue::from_static(AGENT));
         if !spec.body.is_empty()
             || matches!(spec.method, Method::POST | Method::PUT | Method::PATCH)
@@ -231,7 +284,7 @@ async fn send(mut spec: Spec) -> Result<(Response<Incoming>, Url), String> {
             headers.insert(name.clone(), value.clone());
         }
 
-        let response = tokio::time::timeout(spec.timeout, sender.send_request(request))
+        let response = tokio::time::timeout(spec.timeout, sender.send(request))
             .await
             .map_err(|_| format!("the request to {} timed out", spec.url))?
             .map_err(|error| format!("the request to {} failed: {error}", spec.url))?;
@@ -285,6 +338,7 @@ async fn fetch(spec: Spec) -> Result<ClientResponse, String> {
             .any(|(name, _)| *name == ACCEPT_ENCODING);
     let (response, url) = send(spec).await?;
     let status = response.status().as_u16();
+    let version = crate::http::version_name(response.version());
     let mut headers = headers_of(&response);
 
     let mut body = response.into_body();
@@ -326,6 +380,7 @@ async fn fetch(spec: Spec) -> Result<ClientResponse, String> {
 
     Ok(ClientResponse {
         status,
+        version,
         headers,
         body: collected,
         url: url.to_string(),

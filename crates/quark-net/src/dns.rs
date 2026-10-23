@@ -219,19 +219,42 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     module.set(
         "CreateSelfSignedCertificate",
         lua.create_function(|_, names: LuaValue| {
-            let names = match names {
-                LuaValue::String(name) => vec![name.to_str()?.to_owned()],
-                LuaValue::Table(list) => list
-                    .sequence_values::<String>()
-                    .collect::<LuaResult<Vec<_>>>()?,
-                other => {
-                    return Err(LuaError::runtime(format!(
-                        "expected a host name or a list of host names, got {}",
-                        other.type_name()
-                    )));
-                }
+            crate::tls::self_signed(read_names(names)?).map_err(LuaError::runtime)
+        })?,
+    )?;
+    module.set(
+        "CreateCertificateAuthority",
+        lua.create_function(
+            |_, (name, options): (Option<String>, quark_core::Options)| {
+                crate::tls::create_authority(
+                    name.as_deref().unwrap_or("Quark Certificate Authority"),
+                    options.get_or("Days", 3650)?,
+                )
+                .map_err(LuaError::runtime)
+            },
+        )?,
+    )?;
+    module.set(
+        "CreateCertificate",
+        lua.create_function(|_, (names, options): (LuaValue, quark_core::Options)| {
+            let authority = match options.get::<LuaTable>("CA")? {
+                Some(table) => Some(crate::tls::Authority {
+                    certificate: table.get::<Option<String>>("Certificate")?.ok_or_else(|| {
+                        LuaError::runtime("the CA option needs Certificate and PrivateKey")
+                    })?,
+                    private_key: table.get::<Option<String>>("PrivateKey")?.ok_or_else(|| {
+                        LuaError::runtime("the CA option needs Certificate and PrivateKey")
+                    })?,
+                }),
+                None => None,
             };
-            crate::tls::self_signed(names).map_err(LuaError::runtime)
+            crate::tls::create_certificate(
+                read_names(names)?,
+                authority.as_ref(),
+                options.get_or("Client", false)?,
+                options.get_or("Days", 365)?,
+            )
+            .map_err(LuaError::runtime)
         })?,
     )?;
 
@@ -286,4 +309,15 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     )?;
 
     Ok(module)
+}
+
+fn read_names(names: LuaValue) -> LuaResult<Vec<String>> {
+    match names {
+        LuaValue::String(name) => Ok(vec![name.to_str()?.to_owned()]),
+        LuaValue::Table(list) => list.sequence_values::<String>().collect(),
+        other => Err(LuaError::runtime(format!(
+            "expected a host name or a list of host names, got {}",
+            other.type_name()
+        ))),
+    }
 }

@@ -12,10 +12,10 @@ use hyper::header::{
     ACCEPT_ENCODING, CACHE_CONTROL, CONNECTION, CONTENT_ENCODING, CONTENT_TYPE, HeaderName,
     HeaderValue, SET_COOKIE, UPGRADE, VARY,
 };
-use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::server::conn::auto;
 use mlua::prelude::*;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
 use quark_core::{
@@ -29,7 +29,7 @@ use tokio_tungstenite::tungstenite::protocol::Role;
 use crate::connection::{Connected, Connection, add_connection_methods, bind_tcp};
 use crate::encoding::{self, DEFAULT_ENCODINGS, Encoding};
 use crate::stream::{self, BoxedIo};
-use crate::tls;
+use crate::tls::{self, PeerCertificate};
 
 const SOURCE: &str = include_str!("http.lua");
 const DEFAULT_MAX_BODY_SIZE: usize = 1024 * 1024;
@@ -589,7 +589,13 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
         compression: compression_settings(&options)?,
     };
 
-    let acceptor = tls::server(&options)?;
+    let http2: bool = options.get_or("HTTP2", true)?;
+    let alpn: &[&[u8]] = if http2 {
+        &[tls::ALPN_HTTP2, tls::ALPN_HTTP1]
+    } else {
+        &[tls::ALPN_HTTP1]
+    };
+    let acceptor = tls::server(&options, alpn)?;
 
     let listener = match bind_tcp(&host, port) {
         Ok(listener) => listener,
@@ -631,22 +637,26 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                         let acceptor = acceptor.clone();
                         let settings = settings.clone();
                         runtime().spawn(async move {
-                            let io = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_HANDSHAKE_TIMEOUT)).await {
-                                Ok(io) => io,
+                            let accepted = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_HANDSHAKE_TIMEOUT)).await {
+                                Ok(accepted) => accepted,
                                 Err(_) => {
                                     active.fetch_sub(1, Ordering::AcqRel);
                                     return;
                                 }
                             };
+                            let peer = accepted.peer;
                             let service = service_fn(move |request| {
                                 let emitter = emitter.clone();
                                 let settings = settings.clone();
-                                async move { Ok::<_, Infallible>(handle(request, remote, emitter, settings).await) }
+                                let peer = peer.clone();
+                                async move { Ok::<_, Infallible>(handle(request, remote, peer, emitter, settings).await) }
                             });
-                            let _ = http1::Builder::new()
-                                .keep_alive(true)
-                                .serve_connection(TokioIo::new(io), service)
-                                .with_upgrades()
+                            let mut builder = auto::Builder::new(TokioExecutor::new());
+                            if !http2 {
+                                builder = builder.http1_only();
+                            }
+                            let _ = builder
+                                .serve_connection_with_upgrades(TokioIo::new(accepted.io), service)
                                 .await;
                             active.fetch_sub(1, Ordering::AcqRel);
                         });
@@ -709,6 +719,7 @@ fn websocket_key(request: &Request<Incoming>) -> Option<String> {
 async fn handle(
     mut request: Request<Incoming>,
     remote: SocketAddr,
+    peer: Option<PeerCertificate>,
     emitter: Emitter,
     settings: Settings,
 ) -> Response<Full<HttpBytes>> {
@@ -731,6 +742,7 @@ async fn handle(
     };
 
     let method = parts.method.as_str().to_owned();
+    let version = version_name(parts.version);
     let path = parts.uri.path().to_owned();
     let query = parts.uri.query().unwrap_or_default().to_owned();
     let mut headers: Vec<(String, String)> = Vec::new();
@@ -754,6 +766,7 @@ async fn handle(
     }
     let is_websocket = websocket_key.is_some();
 
+    let peer_for_request = peer.clone();
     let (sender, receiver) = oneshot::channel();
     emitter.with(move |lua, server| {
         let request = lua.create_table()?;
@@ -785,6 +798,8 @@ async fn handle(
         request.set("Body", Bytes(body))?;
         request.set("RemoteAddress", remote.ip().to_string())?;
         request.set("IsWebSocket", is_websocket)?;
+        request.set("Version", version)?;
+        request.set("ClientCertificate", peer_for_request)?;
 
         let response = create_userdata(
             lua,
@@ -837,7 +852,7 @@ async fn handle(
                 let io: BoxedIo = Box::new(TokioIo::new(upgraded));
                 let socket = WebSocketStream::from_raw_socket(io, Role::Server, Some(config)).await;
                 emitter.with(move |lua, _| {
-                    let socket = crate::websocket::adopt(lua, socket, Some(remote))?;
+                    let socket = crate::websocket::adopt(lua, socket, Some(remote), peer)?;
                     let handler: LuaFunction = lua.registry_value(&handler)?;
                     let request: LuaTable = lua.registry_value(&request)?;
                     let accept: LuaFunction = http_runtime(lua)?.get("accept_websocket")?;
@@ -897,6 +912,16 @@ async fn encode_body(data: &mut ResponseData, compression: &CompressionSettings,
         }
         Ok((body, Err(_))) => data.body = body,
         Err(_) => {}
+    }
+}
+
+pub(crate) fn version_name(version: hyper::Version) -> &'static str {
+    match version {
+        hyper::Version::HTTP_09 => "HTTP/0.9",
+        hyper::Version::HTTP_10 => "HTTP/1.0",
+        hyper::Version::HTTP_2 => "HTTP/2",
+        hyper::Version::HTTP_3 => "HTTP/3",
+        _ => "HTTP/1.1",
     }
 }
 
