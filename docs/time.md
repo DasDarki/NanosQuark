@@ -42,12 +42,18 @@ Dates have the fields `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Milli
 
 | Method | |
 | --- | --- |
-| `:Format(format)` | text with [strftime directives](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications): `%Y-%m-%d %H:%M:%S`, `%A, %B %-d` |
+| `:Format(format, options?)` | text with [strftime directives](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications): `%Y-%m-%d %H:%M:%S`, `%A, %B %-d`. Option `Locale` for month and weekday names in other languages |
 | `:ToISO()` | `"2026-06-01T10:00:00+02:00"` |
 | `:ToRFC2822()` | `"Mon, 1 Jun 2026 10:00:00 +0200"`, for HTTP and e-mails |
 | `tostring(date)` | ISO with the zone: `"2026-06-01T10:00:00+02:00[Europe/Berlin]"` |
 | `:GetUnix()`, `:GetUnixMs()` | Unix timestamp in seconds and milliseconds |
 | `:Relative(now?)` | `"in 5 minutes"`, `"3 hours ago"`, `"just now"` |
+
+With `Locale` the names of `%A`, `%a`, `%B` and `%b` are written in that language: `de`, `en`, `es`, `fr`, `it`, `nl`, `pl`, `pt`, `ru`, `sv`, `tr` or `cs`, regional tags like `de-AT` use their language. Only the names change, the order of the parts is up to the format. Month names are in their standalone form, which reads naturally in headings and lists but not always after a day in languages with grammatical cases like Russian or Polish.
+
+```lua
+Time.Now("Europe/Berlin"):Format("%A, %-d. %B %Y", { Locale = "de" })  -- "Montag, 1. Juni 2026"
+```
 
 ### Calculating
 

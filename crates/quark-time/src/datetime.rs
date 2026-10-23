@@ -278,9 +278,29 @@ impl LuaUserData for DateTime {
         methods.add_method("ToRFC2822", |_, time, ()| {
             rfc2822::to_string(&time.0).map_err(error)
         });
-        methods.add_method("Format", |_, time, pattern: String| {
-            strtime::format(&pattern, &time.0).map_err(error)
-        });
+        methods.add_method(
+            "Format",
+            |_, time, (pattern, options): (String, Options)| {
+                let pattern = match options.get::<String>("Locale")? {
+                    None => pattern,
+                    Some(locale) => {
+                        let names = crate::names::find(&locale).ok_or_else(|| {
+                        let languages = crate::names::languages().collect::<Vec<_>>().join(", ");
+                        LuaError::runtime(format!(
+                            "no month and weekday names for '{locale}', available are {languages}"
+                        ))
+                    })?;
+                        crate::names::localize(
+                            &pattern,
+                            names,
+                            time.0.month() as usize - 1,
+                            time.0.weekday().to_monday_zero_offset() as usize,
+                        )
+                    }
+                };
+                strtime::format(&pattern, &time.0).map_err(error)
+            },
+        );
         methods.add_method("ToTable", |lua, time, ()| {
             let table = lua.create_table()?;
             table.set("Year", time.0.year())?;

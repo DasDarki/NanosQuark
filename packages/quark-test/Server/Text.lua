@@ -225,6 +225,28 @@ Test.Describe("Template", function()
         Expect(message):ToContain("not found")
     end)
 
+    Test.It("calls Lua filters, functions and tests", function()
+        local text = Template.Render("{{ name | shout }} {{ add(2, 3) }} {% if 4 is even %}even{% endif %} {{ [1, 2] | total }}", { name = "ada" }, {
+            Filters = {
+                shout = function(value) return value:upper() .. "!" end,
+                total = function(list) local sum = 0 for _, value in ipairs(list) do sum = sum + value end return sum end,
+            },
+            Functions = { add = function(a, b) return a + b end },
+            Tests = { even = function(value) return value % 2 == 0 end },
+        })
+        Expect(text):ToBe("ADA! 5 even 3")
+
+        local templates = Template.New()
+        templates:AddFilter("money", function(value, currency) return string.format("%.2f %s", value, currency or "$") end)
+        templates:AddFunction("player", function(id) return { Name = "Player " .. id } end)
+        templates:Add("price", "{{ 4.5 | money('EUR') }} for {{ player(7).Name }}")
+        Expect(templates:Render("price")):ToBe("4.50 EUR for Player 7")
+
+        local failed, message = Template.Render("{{ 1 | broken }}", {}, { Filters = { broken = function() error("nope") end } })
+        Expect(failed):ToBeNil()
+        Expect(message):ToContain("nope")
+    end)
+
     Test.It("stops runaway templates", function()
         local text, message = Template.Render("{% for a in range(10000) %}{% for b in range(10000) %}{% endfor %}{% endfor %}", {}, { Fuel = 100000 })
         Expect(text):ToBeNil()

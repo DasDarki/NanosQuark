@@ -131,8 +131,8 @@ Lua code cannot run on worker threads, so heavy computation means native algorit
 - [x] Date and time: ISO 8601 and RFC 2822 parsing, strftime, time zones with bundled database, calendar arithmetic, relative times
 - [x] Durations: parsing (`"1h 30m"`, ISO 8601) and formatting
 - [x] Cron expressions and `Time.Schedule("0 */6 * * *", callback)` with time zones and daylight saving handling
-- [ ] Custom template filters and functions written in Lua
-- [ ] Localized date formatting (month and weekday names in other languages)
+- [x] Custom template filters, functions and tests written in Lua
+- [x] Localized date formatting (month and weekday names in 12 languages)
 
 ## Server utilities
 

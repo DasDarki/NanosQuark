@@ -1,12 +1,124 @@
+use std::cell::RefCell;
+use std::sync::Arc;
+
 use minijinja::syntax::SyntaxConfig;
-use minijinja::value::Serde;
-use minijinja::{AutoEscape, Environment, UndefinedBehavior, Value};
+use minijinja::value::{Rest, Serde};
+use minijinja::{AutoEscape, Environment, ErrorKind, UndefinedBehavior, Value};
 use mlua::prelude::*;
 use quark_core::{Options, create_userdata};
 
 const DEFAULT_FUEL: u64 = 10_000_000;
 
 pub struct Templates(Environment<'static>);
+
+thread_local! {
+    static RENDERING: RefCell<Vec<Lua>> = const { RefCell::new(Vec::new()) };
+}
+
+#[derive(Clone, Copy)]
+enum Kind {
+    Filter,
+    Function,
+    Test,
+}
+
+struct RenderGuard;
+
+impl Drop for RenderGuard {
+    fn drop(&mut self) {
+        RENDERING.with(|stack| {
+            stack.borrow_mut().pop();
+        });
+    }
+}
+
+fn rendering<T>(lua: &Lua, work: impl FnOnce() -> T) -> T {
+    RENDERING.with(|stack| stack.borrow_mut().push(lua.clone()));
+    let _guard = RenderGuard;
+    work()
+}
+
+fn call_lua(key: &LuaRegistryKey, arguments: Vec<Value>) -> Result<LuaValue, minijinja::Error> {
+    let lua = RENDERING
+        .with(|stack| stack.borrow().last().cloned())
+        .ok_or_else(|| {
+            minijinja::Error::new(
+                ErrorKind::InvalidOperation,
+                "Lua functions can only run while a template renders on the game thread",
+            )
+        })?;
+    let failed = |error: LuaError| {
+        minijinja::Error::new(ErrorKind::InvalidOperation, quark_core::describe(&error))
+    };
+    let function: LuaFunction = lua.registry_value(key).map_err(failed)?;
+    let arguments = arguments
+        .iter()
+        .map(|value| lua.to_value(value))
+        .collect::<LuaResult<Vec<_>>>()
+        .map_err(failed)?;
+    function
+        .call::<LuaValue>(LuaMultiValue::from_iter(arguments))
+        .map_err(failed)
+}
+
+fn install(
+    lua: &Lua,
+    environment: &mut Environment<'static>,
+    kind: Kind,
+    name: String,
+    function: LuaFunction,
+) -> LuaResult<()> {
+    let key = Arc::new(lua.create_registry_value(function)?);
+    match kind {
+        Kind::Test => environment.add_test(name, move |arguments: Rest<Value>| {
+            call_lua(&key, arguments.0)
+                .map(|value| !matches!(value, LuaNil | LuaValue::Boolean(false)))
+        }),
+        Kind::Filter | Kind::Function => {
+            let call = move |arguments: Rest<Value>| -> Result<Value, minijinja::Error> {
+                let result = call_lua(&key, arguments.0)?;
+                RENDERING
+                    .with(|stack| stack.borrow().last().cloned())
+                    .ok_or_else(|| {
+                        minijinja::Error::new(ErrorKind::InvalidOperation, "no Lua state")
+                    })
+                    .and_then(|lua| {
+                        to_value(&lua, result).map_err(|error| {
+                            minijinja::Error::new(
+                                ErrorKind::InvalidOperation,
+                                quark_core::describe(&error),
+                            )
+                        })
+                    })
+            };
+            match kind {
+                Kind::Filter => environment.add_filter(name, call),
+                _ => environment.add_function(name, call),
+            }
+        }
+    }
+    Ok(())
+}
+
+fn install_all(
+    lua: &Lua,
+    environment: &mut Environment<'static>,
+    options: &Options,
+) -> LuaResult<()> {
+    for (option, kind) in [
+        ("Filters", Kind::Filter),
+        ("Functions", Kind::Function),
+        ("Tests", Kind::Test),
+    ] {
+        if let Some(table) = options.get::<LuaTable>(option)? {
+            for pair in table.pairs::<String, LuaFunction>() {
+                let (name, function) = pair?;
+                install(lua, environment, kind, name, function)?;
+            }
+        }
+    }
+    Ok(())
+}
 
 fn configure(options: &Options) -> LuaResult<Environment<'static>> {
     let mut environment = Environment::new();
@@ -128,10 +240,12 @@ impl LuaUserData for Templates {
             "Render",
             |lua, templates, (name, values): (String, Option<LuaValue>)| {
                 let values = context(lua, values)?;
-                let rendered = templates
-                    .0
-                    .get_template(&name)
-                    .and_then(|template| template.render(values));
+                let rendered = rendering(lua, || {
+                    templates
+                        .0
+                        .get_template(&name)
+                        .and_then(|template| template.render(values))
+                });
                 result(lua, rendered)
             },
         );
@@ -139,9 +253,24 @@ impl LuaUserData for Templates {
             "RenderString",
             |lua, templates, (source, values): (String, Option<LuaValue>)| {
                 let values = context(lua, values)?;
-                result(lua, templates.0.render_str(&source, values))
+                result(
+                    lua,
+                    rendering(lua, || templates.0.render_str(&source, values)),
+                )
             },
         );
+        for (method, kind) in [
+            ("AddFilter", Kind::Filter),
+            ("AddFunction", Kind::Function),
+            ("AddTest", Kind::Test),
+        ] {
+            methods.add_method_mut(
+                method,
+                move |lua, templates, (name, function): (String, LuaFunction)| {
+                    install(lua, &mut templates.0, kind, name, function)
+                },
+            );
+        }
     }
 }
 
@@ -152,9 +281,13 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
         "Render",
         lua.create_function(
             |lua, (source, values, options): (String, Option<LuaValue>, Options)| {
-                let environment = configure(&options)?;
+                let mut environment = configure(&options)?;
+                install_all(lua, &mut environment, &options)?;
                 let values = context(lua, values)?;
-                result(lua, environment.render_str(&source, values))
+                result(
+                    lua,
+                    rendering(lua, || environment.render_str(&source, values)),
+                )
             },
         )?,
     )?;
@@ -162,6 +295,7 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
         "New",
         lua.create_function(|lua, options: Options| {
             let mut environment = configure(&options)?;
+            install_all(lua, &mut environment, &options)?;
             if let Some(sources) = options.get::<LuaTable>("Templates")? {
                 for pair in sources.pairs::<String, String>() {
                     let (name, source) = pair?;

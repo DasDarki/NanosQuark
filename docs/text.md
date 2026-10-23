@@ -152,6 +152,7 @@ Top players:
 | `TrimBlocks`, `LstripBlocks`, `KeepTrailingNewline` | whitespace handling around blocks |
 | `Globals` | values available to every template |
 | `Fuel` | limit for the work one render may do, protects against runaway templates (10000000) |
+| `Filters`, `Functions`, `Tests` | Lua functions usable in templates, see below |
 
 `Template.New(options?)` keeps named templates for `{% extends %}`, `{% include %}` and `{% import %}`. It takes the same options and `Templates`, a table of names and sources:
 
@@ -173,3 +174,25 @@ local html = pages:Render("status", { online = #Player.GetAll() })
 | `:RenderString(source, context?)` | renders a source that can use the named templates |
 | `:Add(name, source)` | adds or replaces a template, returns `true` or `nil, message` |
 | `:Remove(name)`, `:Has(name)`, `:GetNames()` | |
+| `:AddFilter(name, function)`, `:AddFunction(name, function)`, `:AddTest(name, function)` | add Lua functions |
+
+### Lua functions in templates
+
+Filters transform a value (`{{ price | money("EUR") }}`), functions are called by name (`{{ player(7).Name }}`) and tests check a value (`{% if level is max %}`). They receive their arguments as Lua values, the filtered value first, and their results go back into the template. Errors raised in them end the render with `nil, message`.
+
+```lua
+local templates = Quark.Template.New({
+    Filters = {
+        money = function(value, currency) return string.format("%.2f %s", value, currency or "$") end,
+    },
+    Functions = {
+        online = function() return #Player.GetAll() end,
+    },
+    Tests = {
+        admin = function(name) return admins[name] == true end,
+    },
+})
+templates:Add("motd", "{{ online() }} players online{% if name is admin %}, welcome back admin{% endif %}")
+```
+
+Lua functions run on the game thread while the template renders, keep them fast.
