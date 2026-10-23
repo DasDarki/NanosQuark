@@ -26,9 +26,26 @@ pub fn install_crypto_provider() {
     });
 }
 
+pub fn check_url(url: &str) -> LuaResult<()> {
+    if !quark_core::has_connect_rules() {
+        return Ok(());
+    }
+    let info = url
+        .into_connection_info()
+        .map_err(|error| LuaError::runtime(format!("invalid Redis URL: {error}")))?;
+    match info.addr() {
+        redis::ConnectionAddr::Tcp(host, port)
+        | redis::ConnectionAddr::TcpTls { host, port, .. } => {
+            quark_core::check_connect_blocking(host, *port).map_err(LuaError::runtime)
+        }
+        _ => Ok(()),
+    }
+}
+
 pub fn settings(url: Option<String>, options: &Options) -> LuaResult<Settings> {
     install_crypto_provider();
     let url = url.unwrap_or_else(|| DEFAULT_URL.to_owned());
+    check_url(&url)?;
     let info = url
         .as_str()
         .into_connection_info()

@@ -2696,9 +2696,11 @@ dependencies = [
 name = "quark-core"
 version = "0.1.0"
 dependencies = [
+ "ipnet",
  "libc",
  "mlua",
  "tokio",
+ "toml",
  "windows-sys 0.61.2",
 ]
 

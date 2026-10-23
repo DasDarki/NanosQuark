@@ -41,6 +41,11 @@ pub fn create_root(lua: &Lua, version: &str, modules: &'static [Module]) -> LuaR
         root.set(name, promise.get::<LuaFunction>(name)?)?;
     }
     root.set("Clock", lua.create_function(|_, ()| Ok(clock()))?)?;
+    root.set("Configure", lua.create_function(crate::config::configure)?)?;
+    root.set(
+        "GetConfiguration",
+        lua.create_function(crate::config::configuration)?,
+    )?;
 
     protect_table(lua, &root)?;
 

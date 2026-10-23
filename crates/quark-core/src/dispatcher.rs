@@ -8,9 +8,6 @@ use mlua::prelude::*;
 
 use crate::describe;
 
-const TICK_BUDGET: Duration = Duration::from_millis(4);
-const FRAME_WINDOW: Duration = Duration::from_millis(5);
-
 type Job = Box<dyn FnOnce(&Lua) -> LuaResult<()> + Send>;
 
 pub trait Resource: Send + Sync {
@@ -231,10 +228,12 @@ fn pump(lua: &Lua) -> LuaResult<()> {
         };
 
         let now = Instant::now();
-        if now.duration_since(state.window_start.get()) > FRAME_WINDOW {
+        if now.duration_since(state.window_start.get())
+            > crate::tick_budget() + Duration::from_millis(1)
+        {
             state.window_start.set(now);
         }
-        state.window_start.get() + TICK_BUDGET
+        state.window_start.get() + crate::tick_budget()
     };
 
     while Instant::now() < deadline {

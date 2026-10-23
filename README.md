@@ -53,6 +53,10 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | `RateLimit`, `Cache`, `PriorityQueue`, `RingBuffer`, `Bitset`, `Metrics`, `Log` | [docs/utilities.md](docs/utilities.md): rate limiting, LRU and TTL caches, data structures, Prometheus metrics and structured logging |
 | `Testing` | [docs/testing.md](docs/testing.md): unit tests with async support, expectations, spies and mocks |
 
+### Configuration
+
+Quark runs without configuration. Worker threads, the time budget per tick and network allow lists can be set in a `quark.toml` next to the server or with `Quark.Configure`, see [docs/configuration.md](docs/configuration.md).
+
 ### Async functions
 
 Expensive functions (password hashing, key generation, heavy computation) take an optional callback as last argument. With a callback they run on native worker threads and the result comes back on the game thread, following the Lua convention `callback(result)` on success and `callback(nil, error)` on failure. Without a callback they run synchronously and return `result` or `nil, error`:

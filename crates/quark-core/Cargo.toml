@@ -10,6 +10,9 @@ license.workspace = true
 mlua.workspace = true
 tokio.workspace = true
 
+ipnet.workspace = true
+toml.workspace = true
+
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 

@@ -179,6 +179,7 @@ pub fn open_clients<T: Connected + 'static>(
 }
 
 pub fn bind_tcp(host: &str, port: u16) -> Result<tokio::net::TcpListener, String> {
+    quark_core::check_listen(port)?;
     let listener = std::net::TcpListener::bind((host, port))
         .map_err(|error| format!("cannot listen on {host}:{port}: {error}"))?;
     listener

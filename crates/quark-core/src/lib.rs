@@ -1,4 +1,5 @@
 mod buffer;
+mod config;
 mod dispatcher;
 mod events;
 mod library;
@@ -11,6 +12,10 @@ mod task;
 mod values;
 
 pub use buffer::{Binary, Buffer, build as buffer, package_base as index_base};
+pub use config::{
+    blocking_threads, check_connect, check_connect_blocking, check_listen, has_connect_rules,
+    tick_budget, worker_threads,
+};
 pub use dispatcher::{Dispatcher, Resource, package_environment, report_error};
 pub use events::{Emitter, add_event_methods, create_object, emit_now, object_state};
 pub use library::pin_library;

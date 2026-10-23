@@ -358,6 +358,16 @@ fn connect(lua: &Lua, (servers, options): (LuaValue, Options)) -> LuaResult<LuaM
                 .map_err(|error| LuaError::runtime(format!("invalid NATS URL '{server}': {error}")))
         })
         .collect::<LuaResult<Vec<_>>>()?;
+    if quark_core::has_connect_rules() {
+        for server in &servers {
+            let parsed = url::Url::parse(server).map_err(|error| {
+                LuaError::runtime(format!("invalid NATS URL '{server}': {error}"))
+            })?;
+            let host = parsed.host_str().unwrap_or_default();
+            quark_core::check_connect_blocking(host, parsed.port().unwrap_or(4222))
+                .map_err(LuaError::runtime)?;
+        }
+    }
 
     let emitter_slot: Arc<OnceLock<Emitter>> = Arc::new(OnceLock::new());
     let state = Arc::new(AtomicU8::new(CONNECTING));

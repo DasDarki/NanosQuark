@@ -164,6 +164,7 @@ fn options_for(url: &str, options: &Options) -> LuaResult<(MqttOptions, String)>
         .trim_end_matches(']')
         .to_owned();
     let port = parsed.port().unwrap_or(if secure { 8883 } else { 1883 });
+    quark_core::check_connect_blocking(&host, port).map_err(LuaError::runtime)?;
     let client_id = options
         .get::<String>("ClientID")?
         .unwrap_or_else(|| format!("quark-{}", crate::random_suffix()));

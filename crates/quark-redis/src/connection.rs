@@ -305,6 +305,9 @@ impl Endpoint {
             .cloned()
             .ok_or_else(|| LuaError::runtime("a cluster needs at least one node URL"))?;
         let pubsub = settings(Some(first), options)?;
+        for node in &nodes {
+            crate::check_url(node)?;
+        }
 
         let mut builder = ClusterClient::builder(nodes.iter().map(String::as_str))
             .connection_timeout(pubsub.timeout)
@@ -348,6 +351,9 @@ impl Endpoint {
             .map_err(|_| LuaError::runtime("Sentinels has to be a list of sentinel URLs"))?;
         if sentinels.is_empty() {
             return Err(LuaError::runtime("at least one sentinel URL is needed"));
+        }
+        for sentinel in &sentinels {
+            crate::check_url(sentinel)?;
         }
         let master: String = table
             .get::<Option<String>>("MasterName")?

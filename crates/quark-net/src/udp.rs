@@ -61,6 +61,11 @@ fn bind(
 ) -> LuaResult<Result<LuaAnyUserData, String>> {
     let host = options.get_or("Host", "0.0.0.0".to_owned())?;
     let port = port.unwrap_or(0);
+    if port != 0
+        && let Err(error) = quark_core::check_listen(port)
+    {
+        return Ok(Err(error));
+    }
 
     let socket = match std::net::UdpSocket::bind((host.as_str(), port)).and_then(|socket| {
         socket.set_nonblocking(true)?;
@@ -101,6 +106,9 @@ fn bind(
                                 .map_err(|error| error.to_string())
                                 .and_then(|mut addresses| addresses.next().ok_or_else(|| format!("cannot resolve '{host}'"))),
                         };
+                        let target = target.and_then(|target| {
+                            quark_core::check_connect(&host, port, &[target.ip()]).map(|()| target)
+                        });
                         match target {
                             Ok(target) => {
                                 if let Err(error) = socket.send_to(&data, target).await {

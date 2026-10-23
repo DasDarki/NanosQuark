@@ -14,7 +14,7 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] Async jobs belong to the package that started them, so nested async calls inside callbacks work
 - [x] Per package resource tracking: sockets and servers opened by a package are closed on its `Unload`
 - [x] Event objects (`Subscribe` / `Unsubscribe`) fed from worker threads
-- [ ] `Quark.Configure({ TickBudget = 4, WorkerThreads = 4 })`, sensible defaults for game servers (do not use every core)
+- [x] `Quark.Configure({ TickBudget = 4, WorkerThreads = 4 })` and `quark.toml`, sensible defaults for game servers (do not use every core)
 - [x] Promise objects with `Then`, `Catch`, `Finally`, `All`, `AllSettled`, `Race` and `From` for callback functions
 - [x] Coroutine based await: `Quark.Async(function() local hash = Quark.Await(Crypto.Argon2Hash, password) end)`, `Quark.Delay`, `Quark.Clock`
 - [ ] Cancellation for long running tasks (`task:Cancel()`)
@@ -24,7 +24,7 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [ ] CI: build Linux and Windows, assemble the package, attach a zip to releases
 - [ ] Binary size: the module is about 12 MB, try `opt-level = "s"`, fewer default modules or splitting rarely used modules into separate packages
 - [x] Test harness: standalone Lua host with `Server`/`Console`/`Package` stubs, so module tests run in CI without a nanos world server
-- [ ] Optional allow lists for outgoing network targets and listening ports, since c-modules bypass the sandbox
+- [x] Optional allow lists for outgoing network targets and listening ports, since c-modules bypass the sandbox
 
 ## Crypto
 

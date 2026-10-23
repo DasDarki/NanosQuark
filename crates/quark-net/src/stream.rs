@@ -31,7 +31,27 @@ pub async fn connect(
     tls: Option<ClientTls>,
     timeout: Duration,
 ) -> Result<Connected, String> {
-    let stream = tokio::time::timeout(timeout, TcpStream::connect((host, port)))
+    let addresses: Vec<SocketAddr> = if quark_core::has_connect_rules() {
+        let resolved: Vec<SocketAddr> =
+            tokio::time::timeout(timeout, tokio::net::lookup_host((host, port)))
+                .await
+                .map_err(|_| format!("resolving {host} timed out"))?
+                .map_err(|error| format!("cannot resolve {host}: {error}"))?
+                .collect();
+        let ips: Vec<std::net::IpAddr> = resolved.iter().map(SocketAddr::ip).collect();
+        quark_core::check_connect(host, port, &ips)?;
+        resolved
+    } else {
+        Vec::new()
+    };
+    let connecting = async {
+        if addresses.is_empty() {
+            TcpStream::connect((host, port)).await
+        } else {
+            TcpStream::connect(addresses.as_slice()).await
+        }
+    };
+    let stream = tokio::time::timeout(timeout, connecting)
         .await
         .map_err(|_| format!("connecting to {host}:{port} timed out"))?
         .map_err(|error| format!("cannot connect to {host}:{port}: {error}"))?;
