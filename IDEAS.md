@@ -74,7 +74,8 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 - [x] HTTP/2, response compression, client certificates (mutual TLS), certificate authorities
 - [x] Redis client with commands, pipelines, transactions, pub/sub and automatic reconnects
 - [x] Redis streams with consumer groups, a blocking stream reader and cluster support
-- [ ] MQTT / NATS messaging, Redis Sentinel
+- [x] Redis Sentinel with automatic failover handling
+- [ ] MQTT / NATS messaging
 - [ ] Optional: GeoIP lookup (MaxMind database) for player countries
 
 ## Formats

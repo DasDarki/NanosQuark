@@ -24,7 +24,7 @@ Redis is a fast in memory database, useful for data shared between several nanos
 | `Retries` | how often a lost connection is retried before a command fails (6) |
 | `CA` | trusted certificates as PEM for `rediss://`, replaces the system certificates |
 
-`Redis.Connect` also accepts a list of node URLs for a [cluster](#cluster).
+`Redis.Connect` also accepts a list of node URLs for a [cluster](#cluster) and a table for [Sentinel](#sentinel) setups.
 
 The client connects on the first command and reconnects automatically after connection losses. Commands sent while Redis is unreachable fail with `nil, message`. The client is closed when the package unloads, or with `:Close()`.
 
@@ -156,6 +156,21 @@ The client discovers the other nodes, sends every command to the node owning its
 - Option `ReadFromReplicas` sends read commands to replicas.
 
 Username, password, TLS (`rediss://` URLs) and `CA` work as for single servers.
+
+## Sentinel
+
+Redis Sentinel watches a master and its replicas and promotes a replica when the master fails. Pass the sentinel addresses and the name of the master instead of a URL:
+
+```lua
+local redis = Quark.Redis.Connect({
+    Sentinels = { "redis://10.0.0.1:26379", "redis://10.0.0.2:26379", "redis://10.0.0.3:26379" },
+    MasterName = "mymaster",
+}, { Password = "master-password" })
+```
+
+The client asks the sentinels for the current master and connects to it. After a failover it reconnects to the new master: right away when the sentinels announce the switch, otherwise when the old master stops answering or rejects writes. Commands are retried up to `Retries` times in the meantime, so a failover usually only delays them by a second or two. `Subscriber` and `StreamReader` accept the same table and follow failovers too.
+
+Options like `Username`, `Password`, `Database`, `Timeout` and `Retries` apply to the master. Credentials for the sentinels themselves go into their URLs (`redis://:password@host:26379`), `TLS = true` connects to the master with TLS.
 
 ## Security
 

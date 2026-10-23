@@ -154,7 +154,14 @@ pub fn create(lua: &Lua, (target, options): (LuaValue, Options)) -> LuaResult<Lu
     runtime().spawn(async move {
         let mut delay = RETRY_MIN;
         let reason = loop {
-            match tokio::time::timeout(endpoint.timeout, endpoint.pubsub_client().get_async_pubsub()).await {
+            let mut switches = endpoint.switches();
+            let connected = match endpoint.pubsub_client().await {
+                Ok(client) => tokio::time::timeout(endpoint.timeout, client.get_async_pubsub())
+                    .await
+                    .map(|result| result.map_err(|error| error.to_string())),
+                Err(error) => Ok(Err(error)),
+            };
+            match connected {
                 Ok(Ok(pubsub)) => {
                     let (mut sink, mut stream) = pubsub.split();
                     let channels = snapshot(&shared.channels);
@@ -190,6 +197,7 @@ pub fn create(lua: &Lua, (target, options): (LuaValue, Options)) -> LuaResult<Lu
                                         }
                                         None => break None,
                                     },
+                                    _ = crate::connection::master_switch(&mut switches) => break None,
                                     command = receiver.recv() => {
                                         let result = match command {
                                             Some(Command::Listen(names, false)) => sink.subscribe(names).await,

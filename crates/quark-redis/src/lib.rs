@@ -12,14 +12,14 @@ use quark_core::Options;
 use redis::IntoConnectionInfo;
 
 const DEFAULT_URL: &str = "redis://127.0.0.1:6379";
-const DEFAULT_TIMEOUT: u64 = 5_000;
+pub const DEFAULT_TIMEOUT: u64 = 5_000;
 
 pub struct Settings {
     pub client: redis::Client,
     pub timeout: Duration,
 }
 
-fn install_crypto_provider() {
+pub fn install_crypto_provider() {
     static INSTALL: Once = Once::new();
     INSTALL.call_once(|| {
         let _ = tokio_rustls::rustls::crypto::ring::default_provider().install_default();

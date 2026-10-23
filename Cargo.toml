@@ -87,7 +87,7 @@ http-body-util = "0.1.5"
 hyper = { version = "1.12.0", features = ["client", "server", "http1", "http2"] }
 hyper-util = { version = "0.1.21", features = ["tokio", "server-auto", "http1", "http2"] }
 
-redis = { version = "1.8.0", default-features = false, features = ["tokio-comp", "connection-manager", "cluster-async", "tokio-rustls-comp", "tls-rustls-webpki-roots", "script"] }
+redis = { version = "1.8.0", default-features = false, features = ["tokio-comp", "connection-manager", "cluster-async", "tokio-rustls-comp", "tls-rustls-webpki-roots", "script", "sentinel"] }
 
 fastnoise-lite = "1.1.1"
 

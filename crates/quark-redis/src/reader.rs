@@ -120,6 +120,7 @@ pub fn create(lua: &Lua, (target, options): (LuaValue, Options)) -> LuaResult<Lu
     runtime().spawn(async move {
         let mut delay = RETRY_MIN;
         let reason = loop {
+            let mut switches = endpoint.switches();
             match endpoint.dedicated().await {
                 Ok(mut connection) => {
                     if let Some(group) = group.as_ref().filter(|group| group.create) {
@@ -189,6 +190,7 @@ pub fn create(lua: &Lua, (target, options): (LuaValue, Options)) -> LuaResult<Lu
                                     break false;
                                 }
                             },
+                            _ = crate::connection::master_switch(&mut switches) => break false,
                             _ = receiver.recv() => break true,
                         }
                     };

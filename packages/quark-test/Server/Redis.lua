@@ -389,3 +389,78 @@ describe_cluster("Redis cluster", function()
         subscriber:Close()
     end)
 end)
+
+local SENTINELS = {}
+for node in (((os and os.getenv and os.getenv("QUARK_REDIS_SENTINELS")) or "redis://127.0.0.1:26390,redis://127.0.0.1:26391,redis://127.0.0.1:26392") .. ","):gmatch("([^,]+),") do
+    SENTINELS[#SENTINELS + 1] = node
+end
+local sentinel_probe = Redis.Connect(SENTINELS[1], { Timeout = 500, Retries = 0 })
+local sentinel_available = sentinel_probe:Command("PING") == "PONG"
+sentinel_probe:Close()
+
+local describe_sentinel = sentinel_available and Test.Describe or Test.DescribeSkip
+
+describe_sentinel("Redis Sentinel", function()
+    local target = { Sentinels = SENTINELS, MasterName = "mymaster" }
+
+    local function master_port(sentinel)
+        return Quark.Await(sentinel.Command, sentinel, "SENTINEL", "GET-MASTER-ADDR-BY-NAME", "mymaster")[2]
+    end
+
+    Test.It("connects to the master through the sentinels", function()
+        local client = Redis.Connect(target)
+        Expect(Quark.Await(client.Set, client, prefix .. "sentinel", "value")):ToBe(true)
+        Expect(Quark.Await(client.Get, client, prefix .. "sentinel")):ToBe("value")
+        Expect(Quark.Await(client.Command, client, "ROLE")[1]):ToBe("master")
+        client:Close()
+        Expect(function() Redis.Connect({ Sentinels = SENTINELS }) end):ToThrow("MasterName")
+    end)
+
+    Test.It("follows failovers", function()
+        local client = Redis.Connect(target, { Retries = 20 })
+        local sentinel = Redis.Connect(SENTINELS[1])
+        Expect(Quark.Await(client.Set, client, prefix .. "failover", "before")):ToBe(true)
+        local before = master_port(sentinel)
+
+        local events = Redis.Subscriber(target)
+        events:Listen(prefix .. "channel")
+        Quark.Await(next_event(events, "Connect"))
+
+        Quark.Await(sentinel.Command, sentinel, "SENTINEL", "FAILOVER", "mymaster")
+        local after = before
+        for _ = 1, 100 do
+            Quark.Await(Quark.Delay(100))
+            after = master_port(sentinel)
+            if after ~= before then
+                break
+            end
+        end
+        Expect(after ~= before):ToBe(true)
+
+        local port
+        for _ = 1, 20 do
+            port = Quark.Await(client.Command, client, "CONFIG", "GET", "port")[2]
+            if port == after then
+                break
+            end
+            Quark.Await(Quark.Delay(100))
+        end
+        Expect(port):ToBe(after)
+        Expect(Quark.Await(client.Set, client, prefix .. "failover", "after")):ToBe(true)
+        Expect(Quark.Await(client.Command, client, "ROLE")[1]):ToBe("master")
+
+        local message = next_event(events, "Message")
+        for _ = 1, 50 do
+            if Quark.Await(client.Publish, client, prefix .. "channel", "hello") > 0 then
+                break
+            end
+            Quark.Await(Quark.Delay(200))
+        end
+        local channel, payload = Quark.Await(message)
+        Expect({ channel, payload }):ToEqual({ prefix .. "channel", "hello" })
+
+        events:Close()
+        sentinel:Close()
+        client:Close()
+    end, { Timeout = 20000 })
+end)
