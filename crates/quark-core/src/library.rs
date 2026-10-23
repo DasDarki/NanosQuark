@@ -10,6 +10,13 @@ pub fn pin_library() {
                 libc::RTLD_NOW | libc::RTLD_NOLOAD | libc::RTLD_NODELETE,
             );
         }
+
+        let mut current: libc::sigaction = std::mem::zeroed();
+        if libc::sigaction(libc::SIGPIPE, std::ptr::null(), &mut current) == 0
+            && current.sa_sigaction == libc::SIG_DFL
+        {
+            libc::signal(libc::SIGPIPE, libc::SIG_IGN);
+        }
     }
 }
 
