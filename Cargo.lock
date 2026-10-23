@@ -2874,6 +2874,7 @@ dependencies = [
 name = "quark-utilities"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.4.3",
  "jiff",
  "mlua",
  "quark-core",

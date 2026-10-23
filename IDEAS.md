@@ -142,7 +142,7 @@ Lua code cannot run on worker threads, so heavy computation means native algorit
 - [x] Prometheus metrics (counters, gauges, histograms, collectors) exposed through the HTTP server
 - [x] Structured logging with text and JSON output, child loggers and rotating files
 - [x] Localization: Fluent messages, plural rules and language negotiation
-- [ ] Shared rate limits and caches across servers backed by Redis
+- [x] Shared rate limits and caches across servers backed by Redis
 - [x] Buffers: create, read, write, slice, and copy operations for binary data
 - [x] Converting numbers and strings to binary representations and back
 

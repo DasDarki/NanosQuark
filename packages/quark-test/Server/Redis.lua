@@ -464,3 +464,76 @@ describe_sentinel("Redis Sentinel", function()
         client:Close()
     end, { Timeout = 20000 })
 end)
+
+describe("Shared rate limits and caches", function()
+    local redis
+
+    Test.BeforeAll(function()
+        redis = Redis.Connect(URL)
+    end)
+
+    Test.AfterAll(function()
+        local keys = redis:Command("KEYS", prefix .. "*")
+        if #keys > 0 then
+            redis:Delete(table.unpack(keys))
+        end
+        redis:Close()
+    end)
+
+    Test.It("limits with a shared sliding window", function()
+        local limiter = Quark.RateLimit.Redis(redis, { Limit = 3, Window = "1s", Prefix = prefix .. "window:" })
+        local other_server = Quark.RateLimit.Redis(Redis.Connect(URL), { Limit = 3, Window = "1s", Prefix = prefix .. "window:" })
+        Expect({ limiter:Take("steam-1") }):ToEqual({ true, 0, 2 })
+        Expect(other_server:Take("steam-1")):ToBe(true)
+        Expect({ Quark.Await(limiter.Take, limiter, "steam-1") }):ToEqual({ true, 0, 0 })
+        local allowed, retry, remaining = other_server:Take("steam-1")
+        Expect({ allowed, remaining }):ToEqual({ false, 0 })
+        Expect(retry > 0 and retry <= 1000):ToBe(true)
+        Expect(limiter:Check("steam-2", 3)):ToBe(true)
+        Expect(function() limiter:Take({}) end):ToThrow("strings or numbers")
+        Expect(function() limiter:Take("x", 4) end):ToThrow("larger than the limit")
+
+        Quark.Await(Quark.Delay(retry + 50))
+        Expect(limiter:Take("steam-1")):ToBe(true)
+        limiter:Reset("steam-1")
+        Expect(select(3, limiter:Check("steam-1"))):ToBe(3)
+    end)
+
+    Test.It("limits with a shared token bucket", function()
+        local limiter = Quark.RateLimit.Redis(redis, { Capacity = 2, Per = "1s", Prefix = prefix .. "bucket:" })
+        Expect(limiter:Take(42)):ToBe(true)
+        Expect(limiter:Take(42)):ToBe(true)
+        local allowed, retry, remaining = limiter:Take(42)
+        Expect(allowed):ToBe(false)
+        Expect(remaining < 1):ToBe(true)
+        Expect(retry > 0 and retry <= 500):ToBe(true)
+        Quark.Await(Quark.Delay(retry + 50))
+        Expect(Quark.Await(limiter.Take, limiter, 42)):ToBe(true)
+    end)
+
+    Test.It("caches values for all servers", function()
+        local cache = Quark.Cache.Redis(redis, { Prefix = prefix .. "cache:", TTL = "1m" })
+        local other = Quark.Cache.Redis(Redis.Connect(URL), { Prefix = prefix .. "cache:" })
+        Expect(cache:Set("profile:1", { name = "Ada", level = 7, items = { "sword" } })):ToBe(true)
+        Expect(other:Get("profile:1")):ToEqual({ name = "Ada", level = 7, items = { "sword" } })
+        Expect(Quark.Await(other.Has, other, "profile:1")):ToBe(true)
+        Expect(redis:TTL(prefix .. "cache:profile:1") > 50):ToBe(true)
+        Expect(redis:Get(prefix .. "cache:profile:1")):ToBe('{"items":["sword"],"level":7,"name":"Ada"}')
+
+        local loads = 0
+        local function load(key)
+            loads = loads + 1
+            return { key = key }
+        end
+        Expect(Quark.Await(cache.GetOrSet, cache, "lazy", load)):ToEqual({ key = "lazy" })
+        Expect(cache:GetOrSet("lazy", load)):ToEqual({ key = "lazy" })
+        Expect(loads):ToBe(1)
+
+        cache:Set("short", "gone soon", 100)
+        Quark.Await(Quark.Delay(200))
+        Expect(cache:Get("short")):ToBeNil()
+        Expect(cache:Delete("profile:1")):ToBe(true)
+        Expect(cache:Get("profile:1")):ToBeNil()
+        Expect(function() cache:Set("bad", function() end) end):ToThrow("cannot be stored as JSON")
+    end)
+end)

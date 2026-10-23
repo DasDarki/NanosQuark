@@ -10,5 +10,6 @@ license.workspace = true
 quark-core.workspace = true
 mlua = { workspace = true, features = ["serde"] }
 
+getrandom.workspace = true
 jiff.workspace = true
 serde_json.workspace = true

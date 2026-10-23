@@ -59,6 +59,29 @@ local allowed, retry_after, remaining = limiter:Take(key, cost?)
 
 Keys that are back at their full limit are removed automatically from time to time, so limiters do not grow with every player that ever joined.
 
+### Shared limits
+
+`RateLimit.Redis(client, options)` keeps the limit in Redis, so it applies across all game servers and services using the same Redis, for example one chat limit per player on a whole network. It takes a [Redis client](redis.md) and either `Limit` and `Window` for a sliding window or `Capacity` with `Per` or `Rate` for a token bucket, plus `Prefix` for the key names (`"quark:ratelimit:"`). The time comes from the Redis server, so differences between server clocks do not matter.
+
+| Method | |
+| --- | --- |
+| `:Take(key, cost?, callback?)` | `allowed, retry_after, remaining` like the local limiters |
+| `:Check(key, cost?, callback?)` | the same without consuming |
+| `:Reset(key, callback?)` | forget a key |
+
+Keys are strings or numbers, use stable IDs like the Steam ID instead of player objects. Without a callback each call waits for Redis, which is usually well below a millisecond on the same network. Use a callback or `Quark.Await` for remote Redis servers. Errors from Redis return `nil, message`.
+
+```lua
+local logins = Quark.RateLimit.Redis(redis, { Limit = 5, Window = "15m" })
+
+Quark.Async(function()
+    local allowed, retry = Quark.Await(logins.Take, logins, player:GetSteamID())
+    if not allowed then
+        Chat.SendMessage(player, "Too many attempts, try again in " .. Quark.Time.FormatDuration(retry))
+    end
+end)
+```
+
 ## Cache
 
 `Cache.New(options?)` is a key value cache that removes the least recently used entries when it is full and expired entries when they are read.
@@ -89,6 +112,8 @@ local function GetProfile(steam_id)
     return profiles:GetOrSet(steam_id, LoadProfileFromDatabase)
 end
 ```
+
+`Cache.Redis(client, options?)` stores values in Redis as JSON, shared between all servers. Options `Prefix` (`"quark:cache:"`) and `TTL`. It has `:Get(key, callback?)`, `:Set(key, value, ttl?, callback?)`, `:GetOrSet(key, factory, ttl?, callback?)`, `:Has(key, callback?)` and `:Delete(key, callback?)`. Values have to be representable as JSON, keys are strings or numbers. Other services can read the values directly from Redis.
 
 `Cache.Memoize(callback, options?)` returns a function that caches the results of `callback` by its single argument, and the cache itself.
 
