@@ -9,7 +9,8 @@ use futures_util::FutureExt;
 use http_body_util::{BodyExt, Full, Limited};
 use hyper::body::Incoming;
 use hyper::header::{
-    CACHE_CONTROL, CONNECTION, CONTENT_TYPE, HeaderName, HeaderValue, SET_COOKIE, UPGRADE,
+    ACCEPT_ENCODING, CACHE_CONTROL, CONNECTION, CONTENT_ENCODING, CONTENT_TYPE, HeaderName,
+    HeaderValue, SET_COOKIE, UPGRADE, VARY,
 };
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -26,6 +27,7 @@ use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
 use tokio_tungstenite::tungstenite::protocol::Role;
 
 use crate::connection::{Connected, Connection, add_connection_methods, bind_tcp};
+use crate::encoding::{self, DEFAULT_ENCODINGS, Encoding};
 use crate::stream::{self, BoxedIo};
 use crate::tls;
 
@@ -35,6 +37,7 @@ const DEFAULT_TIMEOUT: u64 = 30_000;
 const DEFAULT_MAX_CONNECTIONS: usize = 1024;
 const DEFAULT_HANDSHAKE_TIMEOUT: u64 = 10_000;
 const DEFAULT_MAX_FILE_SIZE: u64 = 64 * 1024 * 1024;
+const DEFAULT_COMPRESSION_MIN_SIZE: usize = 1024;
 const COOKIE_VALUE: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'.')
@@ -222,6 +225,7 @@ struct ResponseData {
     status: u16,
     headers: Vec<(HeaderName, HeaderValue)>,
     body: Vec<u8>,
+    compress: bool,
 }
 
 enum Reply {
@@ -238,6 +242,7 @@ pub struct HttpResponse {
     status: u16,
     headers: Vec<(HeaderName, HeaderValue)>,
     head: bool,
+    compress: bool,
 }
 
 impl HttpResponse {
@@ -307,6 +312,7 @@ impl HttpResponse {
                 status: self.status,
                 headers: std::mem::take(&mut self.headers),
                 body,
+                compress: self.compress,
             }))
             .is_ok())
     }
@@ -373,6 +379,13 @@ impl LuaUserData for HttpResponse {
             |_, (this, name, value): (LuaAnyUserData, String, String)| {
                 this.borrow_mut::<HttpResponse>()?
                     .set_header(&name, &value)?;
+                Ok(this)
+            },
+        );
+        methods.add_function(
+            "Compress",
+            |_, (this, enabled): (LuaAnyUserData, Option<bool>)| {
+                this.borrow_mut::<HttpResponse>()?.compress = enabled.unwrap_or(true);
                 Ok(this)
             },
         );
@@ -457,6 +470,7 @@ impl LuaUserData for HttpResponse {
                 let status = response.status;
                 let headers = std::mem::take(&mut response.headers);
                 let head = response.head;
+                let compress = response.compress;
                 let max_size = options.get_or("MaxFileSize", DEFAULT_MAX_FILE_SIZE)?;
                 runtime().spawn(async move {
                     let reply = match read_file(&path, max_size).await {
@@ -464,6 +478,7 @@ impl LuaUserData for HttpResponse {
                             status,
                             headers,
                             body: if head { Vec::new() } else { body },
+                            compress,
                         },
                         Err(status) => ResponseData {
                             status,
@@ -476,6 +491,7 @@ impl LuaUserData for HttpResponse {
                             } else {
                                 b"Internal Server Error".to_vec()
                             },
+                            compress: false,
                         },
                     };
                     let _ = sender.send(Reply::Data(reply));
@@ -512,11 +528,54 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
     Ok(module)
 }
 
-#[derive(Clone, Copy)]
+struct CompressionSettings {
+    encodings: Vec<Encoding>,
+    min_size: usize,
+    level: Option<u32>,
+}
+
+#[derive(Clone)]
 struct Settings {
     max_body_size: usize,
     max_message_size: usize,
     timeout: Duration,
+    compression: Option<Arc<CompressionSettings>>,
+}
+
+fn compression_settings(options: &Options) -> LuaResult<Option<Arc<CompressionSettings>>> {
+    let table = match options.get::<LuaValue>("Compression")? {
+        None | Some(LuaValue::Boolean(false)) => return Ok(None),
+        Some(LuaValue::Boolean(true)) => None,
+        Some(LuaValue::Table(table)) => Some(table),
+        Some(other) => {
+            return Err(LuaError::runtime(format!(
+                "the Compression option has to be a boolean or a table, got {}",
+                other.type_name()
+            )));
+        }
+    };
+    let options = table.map(Options::from_table).unwrap_or_default();
+    let encodings = match options.get::<Vec<String>>("Encodings")? {
+        None => DEFAULT_ENCODINGS.to_vec(),
+        Some(names) => names
+            .iter()
+            .map(|name| {
+                Encoding::parse(name).ok_or_else(|| {
+                    LuaError::runtime(format!(
+                        "unknown encoding '{name}', expected br, zstd or gzip"
+                    ))
+                })
+            })
+            .collect::<LuaResult<Vec<_>>>()?,
+    };
+    if encodings.is_empty() {
+        return Err(LuaError::runtime("at least one encoding is needed"));
+    }
+    Ok(Some(Arc::new(CompressionSettings {
+        encodings,
+        min_size: options.get_or("MinSize", DEFAULT_COMPRESSION_MIN_SIZE)?,
+        level: options.get("Level")?,
+    })))
 }
 
 fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAnyUserData, String>> {
@@ -527,6 +586,7 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
         max_message_size: options
             .get_or("MaxMessageSize", crate::framing::DEFAULT_MAX_FRAME_SIZE)?,
         timeout: Duration::from_millis(options.get_or("Timeout", DEFAULT_TIMEOUT)?),
+        compression: compression_settings(&options)?,
     };
 
     let acceptor = tls::server(&options)?;
@@ -569,6 +629,7 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                         let emitter = emitter.clone();
                         let active = Arc::clone(&active);
                         let acceptor = acceptor.clone();
+                        let settings = settings.clone();
                         runtime().spawn(async move {
                             let io = match stream::accept(socket, acceptor, Duration::from_millis(DEFAULT_HANDSHAKE_TIMEOUT)).await {
                                 Ok(io) => io,
@@ -579,6 +640,7 @@ fn listen(lua: &Lua, (port, options): (u16, Options)) -> LuaResult<Result<LuaAny
                             };
                             let service = service_fn(move |request| {
                                 let emitter = emitter.clone();
+                                let settings = settings.clone();
                                 async move { Ok::<_, Infallible>(handle(request, remote, emitter, settings).await) }
                             });
                             let _ = http1::Builder::new()
@@ -655,6 +717,13 @@ async fn handle(
         .as_ref()
         .map(|_| hyper::upgrade::on(&mut request));
 
+    let accept_encoding = request
+        .headers()
+        .get_all(ACCEPT_ENCODING)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .collect::<Vec<_>>()
+        .join(",");
     let (parts, body) = request.into_parts();
     let body = match Limited::new(body, settings.max_body_size).collect().await {
         Ok(collected) => collected.to_bytes().to_vec(),
@@ -724,6 +793,7 @@ async fn handle(
                 status: 200,
                 headers: Vec::new(),
                 head: method == "HEAD",
+                compress: true,
             },
         )?;
 
@@ -738,7 +808,10 @@ async fn handle(
     };
 
     match reply {
-        Reply::Data(data) => {
+        Reply::Data(mut data) => {
+            if let Some(compression) = &settings.compression {
+                encode_body(&mut data, compression, &accept_encoding).await;
+            }
             let mut response = Response::new(Full::new(HttpBytes::from(data.body)));
             *response.status_mut() =
                 StatusCode::from_u16(data.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
@@ -785,6 +858,45 @@ async fn handle(
             }
             response
         }
+    }
+}
+
+async fn encode_body(data: &mut ResponseData, compression: &CompressionSettings, accept: &str) {
+    let header = |name: &HeaderName| {
+        data.headers
+            .iter()
+            .find(|(existing, _)| existing == name)
+            .and_then(|(_, value)| value.to_str().ok())
+            .map(str::to_owned)
+    };
+    let eligible = data.compress
+        && data.body.len() >= compression.min_size
+        && !matches!(data.status, 204 | 206 | 304)
+        && header(&CONTENT_ENCODING).is_none()
+        && header(&CONTENT_TYPE).is_some_and(|content_type| encoding::compressible(&content_type));
+    data.headers
+        .push((VARY, HeaderValue::from_static("accept-encoding")));
+    if !eligible {
+        return;
+    }
+    let Some(encoding) = encoding::choose(accept, &compression.encodings) else {
+        return;
+    };
+    let body = std::mem::take(&mut data.body);
+    let level = compression.level;
+    let result = tokio::task::spawn_blocking(move || {
+        let compressed = encoding::compress(encoding, &body, level);
+        (body, compressed)
+    })
+    .await;
+    match result {
+        Ok((_, Ok(compressed))) => {
+            data.body = compressed;
+            data.headers
+                .push((CONTENT_ENCODING, HeaderValue::from_static(encoding.name())));
+        }
+        Ok((body, Err(_))) => data.body = body,
+        Err(_) => {}
     }
 }
 

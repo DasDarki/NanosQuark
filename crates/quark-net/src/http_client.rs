@@ -5,7 +5,8 @@ use bytes::Bytes as HttpBytes;
 use http_body_util::{BodyExt, Full};
 use hyper::body::Incoming;
 use hyper::header::{
-    CONTENT_LENGTH, CONTENT_TYPE, HOST, HeaderName, HeaderValue, LOCATION, USER_AGENT,
+    ACCEPT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, HOST, HeaderName, HeaderValue, LOCATION,
+    USER_AGENT,
 };
 use hyper::{Method, Request, Response};
 use hyper_util::rt::TokioIo;
@@ -14,6 +15,7 @@ use quark_core::{Binary, Bytes, Emitter, Options, create_object, options_and_cal
 use url::Url;
 
 use crate::connection::{Connected, Connection, add_connection_methods};
+use crate::encoding;
 use crate::http::http_runtime;
 use crate::stream;
 use crate::tls;
@@ -33,6 +35,7 @@ struct Spec {
     max_body_size: usize,
     max_redirects: usize,
     ca: Option<String>,
+    decompress: bool,
 }
 
 enum RequestBody {
@@ -165,6 +168,7 @@ fn spec(
             0
         },
         ca: options.get("CA")?,
+        decompress: options.get_or("Decompress", true)?,
     })
 }
 
@@ -217,6 +221,12 @@ async fn send(mut spec: Spec) -> Result<(Response<Incoming>, Url), String> {
         {
             headers.insert(CONTENT_LENGTH, HeaderValue::from(spec.body.len()));
         }
+        if spec.decompress {
+            headers.insert(
+                ACCEPT_ENCODING,
+                HeaderValue::from_static(encoding::ACCEPT_ENCODING),
+            );
+        }
         for (name, value) in &spec.headers {
             headers.insert(name.clone(), value.clone());
         }
@@ -268,9 +278,14 @@ fn headers_of(response: &Response<Incoming>) -> Headers {
 async fn fetch(spec: Spec) -> Result<ClientResponse, String> {
     let timeout = spec.timeout;
     let max_body_size = spec.max_body_size;
+    let decompress = spec.decompress
+        && !spec
+            .headers
+            .iter()
+            .any(|(name, _)| *name == ACCEPT_ENCODING);
     let (response, url) = send(spec).await?;
     let status = response.status().as_u16();
-    let headers = headers_of(&response);
+    let mut headers = headers_of(&response);
 
     let mut body = response.into_body();
     let mut collected = Vec::new();
@@ -289,6 +304,24 @@ async fn fetch(spec: Spec) -> Result<ClientResponse, String> {
             }
             collected.extend_from_slice(data);
         }
+    }
+
+    let content_encoding = headers
+        .0
+        .iter()
+        .find(|(name, _)| name == "content-encoding")
+        .map(|(_, value)| value.clone());
+    if decompress && let Some(content_encoding) = content_encoding {
+        let input = std::mem::take(&mut collected);
+        collected = tokio::task::spawn_blocking(move || {
+            encoding::decompress(&content_encoding, input, max_body_size)
+        })
+        .await
+        .map_err(|_| "decoding the response failed".to_owned())?
+        .map_err(|error| format!("{error} ({url})"))?;
+        headers
+            .0
+            .retain(|(name, _)| name != "content-encoding" && name != "content-length");
     }
 
     Ok(ClientResponse {
@@ -332,7 +365,8 @@ fn open_stream(lua: &Lua, options: Options) -> LuaResult<LuaAnyUserData> {
     let url = options
         .get::<String>("URL")?
         .ok_or_else(|| LuaError::runtime("the URL option is required"))?;
-    let spec = spec(lua, url, None, None, &options)?;
+    let mut spec = spec(lua, url, None, None, &options)?;
+    spec.decompress = false;
     let (connection, mut commands) = Connection::new(|| StreamCommand::Close);
     let object = create_object(
         lua,

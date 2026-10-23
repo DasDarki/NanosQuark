@@ -11,7 +11,9 @@ quark-core.workspace = true
 mlua = { workspace = true, features = ["serde"] }
 tokio.workspace = true
 
+brotli.workspace = true
 bytes.workspace = true
+flate2.workspace = true
 futures-util.workspace = true
 hickory-resolver.workspace = true
 http-body-util.workspace = true
@@ -26,3 +28,4 @@ tokio-rustls.workspace = true
 tokio-tungstenite.workspace = true
 url.workspace = true
 webpki-roots.workspace = true
+zstd.workspace = true

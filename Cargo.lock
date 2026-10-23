@@ -2631,7 +2631,9 @@ dependencies = [
 name = "quark-net"
 version = "0.1.0"
 dependencies = [
+ "brotli",
  "bytes",
+ "flate2",
  "futures-util",
  "hickory-resolver",
  "http-body-util",
@@ -2649,6 +2651,7 @@ dependencies = [
  "tokio-tungstenite",
  "url",
  "webpki-roots",
+ "zstd",
 ]
 
 [[package]]

@@ -207,6 +207,7 @@ Every request runs in its own `Quark.Async` coroutine, so handlers can `Quark.Aw
 | `MaxConnections` | further connections are dropped (1024) |
 | `MaxMessageSize` | largest WebSocket message on WebSocket routes (16 MiB) |
 | `TLS` | serve HTTPS, see [TLS](#tls) |
+| `Compression` | compress responses, see [Compression](#compression) |
 
 | Server method | |
 | --- | --- |
@@ -244,9 +245,22 @@ Patterns start with `/`. `:name` captures a segment into `request.Params.name`, 
 | `:SendFile(path, options?)` | send a file, read on a worker thread. Options `MaxAge` (cache seconds), `ContentType`, `MaxFileSize` (64 MiB). Missing files become 404 |
 | `:Cookie(name, value, options?)` | set a cookie, chainable. Options `MaxAge`, `Path` (`"/"`), `Domain`, `Secure`, `HttpOnly` (`true`), `SameSite` (`"Lax"`, `"Strict"` or `"None"`, which requires `Secure`) |
 | `:ClearCookie(name, options?)` | delete a cookie, use the same `Path` and `Domain` as when setting it |
+| `:Compress(enabled?)` | allow or prevent compression of this response, chainable |
 | `:IsSent()`, `:GetStatus()` | state of the response |
 
 A response can be sent once, a second send raises an error. Unknown paths are answered with 404, known paths with the wrong method with 405 and an `Allow` header. Errors in handlers and handlers that return without responding produce a 500 and are logged with `Console.Error`, the error message is never sent to the client.
+
+### Compression
+
+With `Compression = true` responses are compressed with Brotli, Zstandard or gzip, whichever the client prefers in its `Accept-Encoding` header. Only text like HTML, CSS, JavaScript, JSON, XML and SVG of at least `MinSize` bytes is compressed, already compressed formats like images and archives are sent as they are. A table configures it:
+
+| Option | |
+| --- | --- |
+| `Encodings` | allowed encodings in order of preference, ties in `Accept-Encoding` go to the first (`{ "br", "zstd", "gzip" }`) |
+| `MinSize` | smaller bodies are sent uncompressed (1024) |
+| `Level` | compression level, lower is faster (5 for Brotli, 3 for Zstandard, 6 for gzip) |
+
+Compression runs on a worker thread. Responses that already have a `Content-Encoding` header and responses with `:Compress(false)` stay uncompressed.
 
 ### WebSocket routes
 
@@ -313,6 +327,7 @@ nanos world has its own HTTP server on the game port, enabled with `--enable_htt
 | `MaxBodySize` | larger responses fail (16 MiB) |
 | `FollowRedirects`, `MaxRedirects` | follow redirects (`true`, at most 5), 303 and redirected `POST`s continue as `GET` |
 | `CA` | additional trusted certificates, see [TLS](#tls) |
+| `Decompress` | ask for compressed responses and decode them (`true`) |
 
 The result is `{ Status, Headers, Body, URL }` with the final URL after redirects, `:Json()` and `:IsSuccess()`. Error statuses like 404 are normal responses, only network problems, timeouts and size limits fail with `nil, message`.
 
@@ -325,7 +340,9 @@ end
 
 Without a callback a request blocks the game thread until it finishes. Never send a blocking request to a Quark HTTP server in the same nanos world server: its handlers run on the blocked game thread, so the request waits until it times out. Use a callback or `Quark.Await`.
 
-`HTTP.Stream(options)` takes the same options and returns an object with the events `Response(status, headers, url)`, `Data(chunk)`, `End`, `Error(message)` and `Close(reason)`, for downloads that should not be held in memory as a whole. `:Close()` aborts the download.
+`HTTP.Stream(options)` takes the same options and returns an object with the events `Response(status, headers, url)`, `Data(chunk)`, `End`, `Error(message)` and `Close(reason)`, for downloads that should not be held in memory as a whole. `:Close()` aborts the download. Streams do not ask for compressed responses, chunks arrive as the server sends them.
+
+With `Decompress` the client sends `Accept-Encoding: gzip, br, zstd, deflate` and decodes the body, removing `Content-Encoding` and `Content-Length` from the returned headers. `MaxBodySize` applies to the decoded body. A request with its own `Accept-Encoding` header gets the body exactly as the server sent it.
 
 ## Security
 

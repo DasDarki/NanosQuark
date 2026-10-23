@@ -904,3 +904,67 @@ Test.Describe("HTTP server features", function()
         server:Close()
     end)
 end)
+
+Test.Describe("HTTP compression", function()
+    local HTTP = Quark.HTTP
+    local Compression = Quark.Compression
+    local TEXT = string.rep("compress me please ", 500)
+
+    local function start(options)
+        local server = assert(HTTP.Listen(0, options))
+        server:Get("/text", function(_, response)
+            response:Text(TEXT)
+        end)
+        server:Get("/small", function(_, response)
+            response:Text("tiny")
+        end)
+        server:Get("/binary", function(_, response)
+            response:Send(string.rep("\0\1", 2000), "application/octet-stream")
+        end)
+        server:Get("/off", function(_, response)
+            response:Compress(false):Text(TEXT)
+        end)
+        return server, "http://127.0.0.1:" .. server:GetPort()
+    end
+
+    Test.It("compresses responses by Accept-Encoding", function()
+        local server, base = start({ Host = "127.0.0.1", Compression = true })
+        local raw = Quark.Await(HTTP.Request, { URL = base .. "/text", Headers = { ["accept-encoding"] = "gzip" } })
+        Expect(raw.Headers["content-encoding"]):ToBe("gzip")
+        Expect(raw.Headers["vary"]):ToBe("accept-encoding")
+        Expect(#raw.Body < #TEXT):ToBe(true)
+        Expect(Compression.Decompress("gzip", raw.Body)):ToBe(TEXT)
+
+        local brotli = Quark.Await(HTTP.Request, { URL = base .. "/text", Headers = { ["accept-encoding"] = "gzip;q=0.5, br" } })
+        Expect(brotli.Headers["content-encoding"]):ToBe("br")
+        local none = Quark.Await(HTTP.Request, { URL = base .. "/text", Headers = { ["accept-encoding"] = "identity" } })
+        Expect(none.Headers["content-encoding"]):ToBeNil()
+        Expect(none.Body):ToBe(TEXT)
+
+        for _, path in ipairs({ "/small", "/binary", "/off" }) do
+            local response = Quark.Await(HTTP.Request, { URL = base .. path, Headers = { ["accept-encoding"] = "gzip" } })
+            Expect(response.Headers["content-encoding"]):ToBeNil()
+        end
+        server:Close()
+    end)
+
+    Test.It("decodes compressed responses in the client", function()
+        local server, base = start({ Host = "127.0.0.1", Compression = { Encodings = { "zstd", "gzip" }, MinSize = 10 } })
+        local response = Quark.Await(HTTP.Get, base .. "/text")
+        Expect(response.Body):ToBe(TEXT)
+        Expect(response.Headers["content-encoding"]):ToBeNil()
+        local small = Quark.Await(HTTP.Get, base .. "/small")
+        Expect(small.Body):ToBe("tiny")
+
+        local raw = Quark.Await(HTTP.Get, base .. "/text", { Decompress = false })
+        Expect(raw.Headers["content-encoding"]):ToBeNil()
+        Expect(raw.Body):ToBe(TEXT)
+        server:Close()
+
+        local plain_server, plain_base = start({ Host = "127.0.0.1" })
+        local plain = Quark.Await(HTTP.Request, { URL = plain_base .. "/text", Headers = { ["accept-encoding"] = "gzip" } })
+        Expect(plain.Headers["content-encoding"]):ToBeNil()
+        plain_server:Close()
+        Expect(function() HTTP.Listen(0, { Compression = { Encodings = { "lzma" } } }) end):ToThrow("unknown encoding")
+    end)
+end)
