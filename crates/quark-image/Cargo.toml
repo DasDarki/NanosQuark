@@ -1,0 +1,13 @@
+[package]
+name = "quark-image"
+description = "Image decoding, editing, drawing and encoding for Quark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+quark-core.workspace = true
+mlua.workspace = true
+
+image.workspace = true

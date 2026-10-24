@@ -52,6 +52,7 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | `Redis` | [docs/redis.md](docs/redis.md): Redis client with commands, pipelines, transactions, pub/sub, streams and cluster support |
 | `Regex`, `Text`, `Template` | [docs/text.md](docs/text.md): regular expressions, Unicode aware text helpers, fuzzy matching, word filters and Jinja templates |
 | `Time` | [docs/time.md](docs/time.md): dates with time zones, parsing and formatting, durations, cron expressions and schedules |
+| `Image` | [docs/image.md](docs/image.md): PNG, JPEG, WebP and BMP images, drawing, resizing, minimaps from height and tile maps |
 | `Locale` | [docs/locale.md](docs/locale.md): translations with Fluent, plural rules and language negotiation |
 | `RateLimit`, `Cache`, `PriorityQueue`, `RingBuffer`, `Bitset`, `Metrics`, `Log` | [docs/utilities.md](docs/utilities.md): rate limiting, LRU and TTL caches, data structures, Prometheus metrics and structured logging |
 | `Testing` | [docs/testing.md](docs/testing.md): unit tests with async support, expectations, spies and mocks |

@@ -16,6 +16,7 @@ mlua.workspace = true
 quark-compression = { workspace = true, optional = true }
 quark-crypto = { workspace = true, optional = true }
 quark-formats = { workspace = true, optional = true }
+quark-image = { workspace = true, optional = true }
 quark-locale = { workspace = true, optional = true }
 quark-math = { workspace = true, optional = true }
 quark-messaging = { workspace = true, optional = true }
@@ -29,10 +30,11 @@ quark-utilities = { workspace = true, optional = true }
 quark-testing = { workspace = true, optional = true }
 
 [features]
-default = ["compression", "crypto", "formats", "locale", "math", "messaging", "net", "random", "redis", "spatial", "testing", "text", "time", "utilities"]
+default = ["compression", "crypto", "formats", "image", "locale", "math", "messaging", "net", "random", "redis", "spatial", "testing", "text", "time", "utilities"]
 compression = ["dep:quark-compression"]
 crypto = ["dep:quark-crypto"]
 formats = ["dep:quark-formats"]
+image = ["dep:quark-image"]
 locale = ["dep:quark-locale"]
 math = ["dep:quark-math"]
 messaging = ["dep:quark-messaging"]

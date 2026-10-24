@@ -135,6 +135,11 @@ const MODULES: &[Module] = &[
         name: "Time",
         build: quark_time::build,
     },
+    #[cfg(feature = "image")]
+    Module {
+        name: "Image",
+        build: quark_image::build,
+    },
     #[cfg(feature = "locale")]
     Module {
         name: "Locale",

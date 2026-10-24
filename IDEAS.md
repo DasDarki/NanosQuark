@@ -118,7 +118,8 @@ Lua code cannot run on worker threads, so heavy computation means native algorit
 - [x] Spatial indexing: spatial hash and KD-tree for "players near this point" or nearest neighbour queries, also from buffers
 - [x] Bulk operations on buffers: sort, statistics, distance checks many against many
 - [x] Procedural generation: heightmaps, cave generation, dungeon layouts, Poisson disk sampling for spawn points
-- [ ] Image processing: decode, resize and encode PNG / JPEG, for example for generated minimaps
+- [x] Image processing: decode, resize, draw and encode PNG, JPEG, WebP and BMP, for example for generated minimaps
+- [ ] Lossy WebP encoding (needs libwebp)
 - [ ] Workers: a separate, sandboxed Lua state on a worker thread running self contained code, with messages passed by value (`Quark.Worker.Run(code, data, callback)`). No access to the nanos world API, but real parallel Lua
 
 ## Text and time

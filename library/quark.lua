@@ -19,6 +19,7 @@
 ---@field Geometry QuarkGeometryModule
 ---@field HTTP QuarkHTTPModule
 ---@field INI QuarkINIModule
+---@field Image QuarkImageModule
 ---@field JSON QuarkJSONModule
 ---@field Locale QuarkLocaleModule
 ---@field Log QuarkLogModule

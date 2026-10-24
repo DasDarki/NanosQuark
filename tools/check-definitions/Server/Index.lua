@@ -1,5 +1,5 @@
 local LIBRARY = os.getenv("QUARK_LIBRARY") or "library"
-local FILES = { "quark", "crypto", "formats", "compression", "net", "redis", "messaging", "random", "text", "time", "locale", "utilities", "testing", "math", "spatial", "procgen" }
+local FILES = { "quark", "crypto", "formats", "compression", "net", "redis", "messaging", "random", "text", "time", "locale", "utilities", "testing", "math", "spatial", "procgen", "image" }
 
 local classes, variables, parents, functions, root_fields = {}, {}, {}, {}, {}
 
@@ -129,6 +129,7 @@ local objects = {
     QuarkDecimal = Quark.Decimal.New(1),
     QuarkGrid = Quark.Pathfinding.Grid(2, 2),
     QuarkMap = Quark.ProcGen.Caves(5, 5),
+    QuarkImage = Quark.Image.New(1, 1),
     QuarkFlowField = Quark.Pathfinding.Grid(2, 2):FlowField({ X = Quark.Buffer.GetIndexBase(), Y = Quark.Buffer.GetIndexBase() }),
     QuarkGraph = Quark.Pathfinding.Graph(),
     QuarkSpatialHash = Quark.Spatial.Hash(),
