@@ -217,6 +217,11 @@ impl Cron {
             if candidate.timestamp() > after.timestamp() {
                 return Some(candidate);
             }
+            if let Ok(repeated) = self.zone.to_ambiguous_zoned(current).later()
+                && repeated.timestamp() > after.timestamp()
+            {
+                return Some(repeated);
+            }
             current = current.checked_add(Span::new().seconds(1)).ok()?;
         }
         None

@@ -180,6 +180,13 @@ Test.Describe("Time.Cron", function()
         local after = nightly:Next(skipped)
         Expect({ after.Day, after.Hour }):ToEqual({ 30, 2 })
 
+        local every_second = Time.Cron("* * * * * *", { Zone = "Europe/Berlin" })
+        local second_pass = Time.FromUnixMs(Time.Parse("2026-10-25T01:30:00Z"):GetUnixMs(), "Europe/Berlin")
+        Expect(second_pass.Offset):ToBe(3600)
+        Expect(every_second:Next(second_pass):GetUnixMs() - second_pass:GetUnixMs()):ToBe(1000)
+        local first_pass = Time.FromUnixMs(Time.Parse("2026-10-25T00:30:00Z"):GetUnixMs(), "Europe/Berlin")
+        Expect(every_second:Next(first_pass):GetUnixMs() - first_pass:GetUnixMs()):ToBe(1000)
+
         local repeated = nightly:NextMany(2, Time.Date({ Year = 2026, Month = 10, Day = 24, Hour = 12 }, "Europe/Berlin"))
         Expect({ repeated[1].Day, repeated[1].Hour, repeated[2].Day }):ToEqual({ 25, 2, 26 })
     end)
