@@ -115,6 +115,12 @@ The `library` folder contains [Lua Language Server](https://luals.github.io/) de
 }
 ```
 
+For [Nebra](https://github.com/nebra-lang/nebra) projects, the [nebra](nebra) folder is a types-only package with declarations generated from the same definitions:
+
+```bash
+nebra add @dasdarki/quark-types
+```
+
 ## Building
 
 ```sh
@@ -160,7 +166,9 @@ crates/
 └── quark-worker       Worker module
 quark/             the cdylib (luaopen_quark), selects modules through Cargo features
 packages/          the c-module package and the test suite
+nebra/             the Nebra type declarations package
 tools/test-host/   runs a package outside of nanos world
+tools/nebra-types/ generates the Nebra declarations in nebra/ from library/
 ```
 
 A module is a function `fn(&Lua) -> LuaResult<LuaTable>` registered in [quark/src/lib.rs](quark/src/lib.rs). It uses [mlua](https://docs.rs/mlua) directly. `quark-core` provides:
@@ -214,6 +222,8 @@ The definitions in `library` are checked against the built module with `tools/ch
 ```sh
 target/test-host/host tools/test-host/host.lua target/release tools/check-definitions 30
 ```
+
+The Nebra declarations in [nebra/src/quark.d.neb](nebra/src/quark.d.neb) are generated from `library` with `python3 tools/nebra-types/generate.py`, `--check` reports when they are out of date.
 
 ## License
 

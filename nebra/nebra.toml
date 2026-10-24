@@ -1,0 +1,8 @@
+name = "quark-types"
+version = "0.1.0"
+target = "5.4"
+
+types_only = true
+
+[dependencies]
+nanos-world-types = "@nebra-lang/nanos-world"

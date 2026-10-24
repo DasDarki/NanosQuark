@@ -1,3 +1,6 @@
 /target
 /dist
+/nebra/nebra_modules
+/nebra/nebra.lock
+__pycache__/
 dump.rdb
