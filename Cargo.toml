@@ -14,6 +14,7 @@ quark-compression = { path = "crates/quark-compression" }
 quark-crypto = { path = "crates/quark-crypto" }
 quark-formats = { path = "crates/quark-formats" }
 quark-locale = { path = "crates/quark-locale" }
+quark-math = { path = "crates/quark-math" }
 quark-messaging = { path = "crates/quark-messaging" }
 quark-net = { path = "crates/quark-net" }
 quark-random = { path = "crates/quark-random" }
@@ -64,6 +65,12 @@ uuid = { version = "1.29.0", features = ["v4", "v7"] }
 brotli = "9.0.0"
 flate2 = "1.1.10"
 maxminddb = "0.32.0"
+delaunator = "1.1.0"
+earcutr = "0.5.0"
+num-bigint = "0.5.1"
+num-integer = "0.1.47"
+num-traits = "0.2.19"
+rust_decimal = { version = "1.43.0", features = ["maths"] }
 async-nats = { version = "0.50.0", default-features = false, features = ["ring", "nuid"] }
 rumqttc = { version = "0.25.1", default-features = false, features = ["use-rustls-no-provider", "url"] }
 lz4_flex = "0.14.0"

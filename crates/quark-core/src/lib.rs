@@ -13,6 +13,7 @@ mod task;
 mod values;
 
 pub use buffer::{Binary, Buffer, build as buffer, package_base as index_base};
+pub use buffer_view::view_numbers;
 pub use config::{
     blocking_threads, check_connect, check_connect_blocking, check_listen, has_connect_rules,
     tick_budget, worker_threads,

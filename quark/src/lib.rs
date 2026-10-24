@@ -170,6 +170,26 @@ const MODULES: &[Module] = &[
         name: "Log",
         build: quark_utilities::log,
     },
+    #[cfg(feature = "math")]
+    Module {
+        name: "Math",
+        build: quark_math::math,
+    },
+    #[cfg(feature = "math")]
+    Module {
+        name: "Geometry",
+        build: quark_math::geometry,
+    },
+    #[cfg(feature = "math")]
+    Module {
+        name: "BigInt",
+        build: quark_math::bigint,
+    },
+    #[cfg(feature = "math")]
+    Module {
+        name: "Decimal",
+        build: quark_math::decimal,
+    },
     #[cfg(feature = "messaging")]
     Module {
         name: "MQTT",

@@ -10,6 +10,9 @@ use mlua::prelude::*;
 
 use generator::Generator;
 
+pub use self::generator::with_rng;
+pub use self::rng::Rng;
+
 const LOOT_SOURCE: &str = include_str!("loot.lua");
 
 pub fn build(lua: &Lua) -> LuaResult<LuaTable> {

@@ -7,6 +7,7 @@
 ---Quark, a utility library for the nanos world server.
 ---@class Quark
 ---@field Version string
+---@field BigInt QuarkBigIntModule
 ---@field Bitset QuarkBitsetModule
 ---@field Buffer QuarkBufferModule
 ---@field CBOR QuarkDataFormat
@@ -14,11 +15,14 @@
 ---@field Cache QuarkCacheModule
 ---@field Compression QuarkCompressionModule
 ---@field Crypto QuarkCryptoModule
+---@field Decimal QuarkDecimalModule
+---@field Geometry QuarkGeometryModule
 ---@field HTTP QuarkHTTPModule
 ---@field INI QuarkINIModule
 ---@field JSON QuarkJSONModule
 ---@field Locale QuarkLocaleModule
 ---@field Log QuarkLogModule
+---@field Math QuarkMathModule
 ---@field MQTT QuarkMQTTModule
 ---@field MessagePack QuarkDataFormat
 ---@field Metrics QuarkMetricsModule

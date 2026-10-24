@@ -1,0 +1,19 @@
+[package]
+name = "quark-math"
+description = "Math helpers, quaternions, curves, statistics, expressions, geometry and exact numbers for Quark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+quark-core.workspace = true
+mlua.workspace = true
+
+delaunator.workspace = true
+earcutr.workspace = true
+num-bigint.workspace = true
+num-integer.workspace = true
+num-traits.workspace = true
+quark-random.workspace = true
+rust_decimal.workspace = true

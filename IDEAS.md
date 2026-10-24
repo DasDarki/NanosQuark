@@ -103,12 +103,12 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 
 ## Math
 
-- [ ] Vector, rotator and quaternion helpers compatible with the nanos world `Vector` / `Rotator` types
-- [ ] Interpolation and easing functions, Bezier curves, Catmull-Rom splines
-- [ ] Big integers and fixed point decimals (money without float errors)
-- [ ] Statistics: mean, median, percentiles, standard deviation on large arrays
-- [ ] Expression evaluation: `Math.Evaluate("2 * x + 1", { x = 3 })`, useful for configurable formulas
-- [ ] Geometry: point in polygon, convex hull, segment intersection, triangulation
+- [x] Vector, rotator and quaternion helpers compatible with the nanos world `Vector` / `Rotator` types
+- [x] Interpolation and easing functions, Bezier curves, Catmull-Rom splines
+- [x] Big integers and fixed point decimals (money without float errors)
+- [x] Statistics: mean, median, percentiles, standard deviation on large arrays
+- [x] Expression evaluation: `Math.Evaluate("2 * x + 1", { x = 3 })`, useful for configurable formulas
+- [x] Geometry: 2D and 3D shapes with containment, random points and closest points, point in polygon, convex hull, segment intersection, triangulation
 
 ## Native computation
 

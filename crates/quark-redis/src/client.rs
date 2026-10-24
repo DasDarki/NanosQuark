@@ -729,7 +729,10 @@ fn read_options(command: &mut Cmd, options: &Options) -> LuaResult<()> {
     if let Some(count) = options.get::<u64>("Count")? {
         command.arg("COUNT").arg(count);
     }
-    if let Some(block) = options.duration("Block")?.map(|block| block.as_millis() as u64) {
+    if let Some(block) = options
+        .duration("Block")?
+        .map(|block| block.as_millis() as u64)
+    {
         command.arg("BLOCK").arg(block);
     }
     Ok(())

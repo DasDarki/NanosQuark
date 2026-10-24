@@ -14,7 +14,9 @@ const UNITS: &[(&[&str], f64)] = &[
 ];
 
 pub fn parse_duration(text: &str) -> Result<Duration, String> {
-    let invalid = || format!("invalid duration '{text}', expected milliseconds or a text like '5s' or '1m 30s'");
+    let invalid = || {
+        format!("invalid duration '{text}', expected milliseconds or a text like '5s' or '1m 30s'")
+    };
     let mut rest = text.trim();
     if rest.is_empty() {
         return Err(invalid());
@@ -47,7 +49,9 @@ pub fn parse_duration(text: &str) -> Result<Duration, String> {
 fn duration_value(key: &str, value: LuaValue) -> LuaResult<Duration> {
     let invalid = |message: String| LuaError::runtime(format!("invalid option '{key}': {message}"));
     match value {
-        LuaValue::Integer(milliseconds) if milliseconds >= 0 => Ok(Duration::from_millis(milliseconds as u64)),
+        LuaValue::Integer(milliseconds) if milliseconds >= 0 => {
+            Ok(Duration::from_millis(milliseconds as u64))
+        }
         LuaValue::Number(milliseconds) if milliseconds.is_finite() && milliseconds >= 0.0 => {
             Ok(Duration::from_secs_f64(milliseconds / 1000.0))
         }

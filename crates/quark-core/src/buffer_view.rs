@@ -175,20 +175,17 @@ impl LuaUserData for BufferView {
             view.write_all(numbers.into_iter().map(|number| view.to_value(number)))
         });
 
-        methods.add_meta_method(
-            LuaMetaMethod::Index,
-            |_, view, index: LuaValue| {
-                let index = match index {
-                    LuaValue::Integer(index) => index,
-                    LuaValue::Number(number) if number.fract() == 0.0 => number as i64,
-                    _ => return Ok(LuaNil),
-                };
-                if index < view.base || index - view.base >= view.count as i64 {
-                    return Ok(LuaNil);
-                }
-                view.get(index)
-            },
-        );
+        methods.add_meta_method(LuaMetaMethod::Index, |_, view, index: LuaValue| {
+            let index = match index {
+                LuaValue::Integer(index) => index,
+                LuaValue::Number(number) if number.fract() == 0.0 => number as i64,
+                _ => return Ok(LuaNil),
+            };
+            if index < view.base || index - view.base >= view.count as i64 {
+                return Ok(LuaNil);
+            }
+            view.get(index)
+        });
         methods.add_meta_method(
             LuaMetaMethod::NewIndex,
             |_, view, (index, value): (i64, LuaValue)| view.set(index, &value),
@@ -237,4 +234,11 @@ pub fn create(
             base,
         },
     )
+}
+
+pub fn view_numbers(userdata: &LuaAnyUserData) -> LuaResult<Option<Vec<f64>>> {
+    match userdata.borrow::<BufferView>() {
+        Ok(view) => view.numbers().map(Some),
+        Err(_) => Ok(None),
+    }
 }
