@@ -24,6 +24,7 @@ quark-spatial = { path = "crates/quark-spatial" }
 quark-text = { path = "crates/quark-text" }
 quark-time = { path = "crates/quark-time" }
 quark-utilities = { path = "crates/quark-utilities" }
+quark-worker = { path = "crates/quark-worker" }
 quark-testing = { path = "crates/quark-testing" }
 
 mlua = { version = "0.12.2", features = ["lua54", "module"] }

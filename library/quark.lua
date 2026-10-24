@@ -50,6 +50,7 @@
 ---@field URL QuarkURLModule
 ---@field UUID QuarkUUIDModule
 ---@field WebSocket QuarkWebSocketModule
+---@field Worker QuarkWorkerModule
 ---@field XML QuarkXMLModule
 ---@field YAML QuarkDataFormat
 ---@field Zip QuarkArchiveModule

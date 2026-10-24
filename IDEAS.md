@@ -112,7 +112,7 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 
 ## Native computation
 
-Lua code cannot run on worker threads, so heavy computation means native algorithms fed with data. Every algorithm gets a sync variant for small inputs and an async variant for large ones.
+Heavy computation runs as native algorithms fed with data, or as Lua in sandboxed workers. Every algorithm gets a sync variant for small inputs and an async variant for large ones.
 
 - [x] Pathfinding: A*, Dijkstra and flow fields on grids and navigation graphs
 - [x] Spatial indexing: spatial hash and KD-tree for "players near this point" or nearest neighbour queries, also from buffers
@@ -120,7 +120,7 @@ Lua code cannot run on worker threads, so heavy computation means native algorit
 - [x] Procedural generation: heightmaps, cave generation, dungeon layouts, Poisson disk sampling for spawn points
 - [x] Image processing: decode, resize, draw and encode PNG, JPEG, WebP and BMP, for example for generated minimaps
 - [ ] Lossy WebP encoding (needs libwebp)
-- [ ] Workers: a separate, sandboxed Lua state on a worker thread running self contained code, with messages passed by value (`Quark.Worker.Run(code, data, callback)`). No access to the nanos world API, but real parallel Lua
+- [x] Workers: sandboxed Lua states on separate threads running self contained code with values passed by copy, single runs and pools with loaded code
 
 ## Text and time
 

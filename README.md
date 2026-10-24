@@ -53,6 +53,7 @@ Modules can also be removed at compile time with Cargo features (`cargo build --
 | `Regex`, `Text`, `Template` | [docs/text.md](docs/text.md): regular expressions, Unicode aware text helpers, fuzzy matching, word filters and Jinja templates |
 | `Time` | [docs/time.md](docs/time.md): dates with time zones, parsing and formatting, durations, cron expressions and schedules |
 | `Image` | [docs/image.md](docs/image.md): PNG, JPEG, WebP and BMP images, drawing, resizing, minimaps from height and tile maps |
+| `Worker` | [docs/worker.md](docs/worker.md): sandboxed Lua states on separate threads for real parallel Lua, single runs and pools |
 | `Locale` | [docs/locale.md](docs/locale.md): translations with Fluent, plural rules and language negotiation |
 | `RateLimit`, `Cache`, `PriorityQueue`, `RingBuffer`, `Bitset`, `Metrics`, `Log` | [docs/utilities.md](docs/utilities.md): rate limiting, LRU and TTL caches, data structures, Prometheus metrics and structured logging |
 | `Testing` | [docs/testing.md](docs/testing.md): unit tests with async support, expectations, spies and mocks |
@@ -141,12 +142,22 @@ Packages/quark/
 ```
 crates/
 ├── quark-compression  Compression, Zip and Tar modules
-├── quark-core     module registry, lazy imports, error boundary, event pump, worker runtime, Buffer, Promise
-├── quark-crypto   Crypto module
-├── quark-net      Net, TCP, UDP, WebSocket and HTTP modules
-├── quark-redis    Redis module
-├── quark-formats  JSON, TOML, YAML, MessagePack, CBOR, CSV, UUID and URL modules
-└── quark-testing  Testing module
+├── quark-core         module registry, lazy imports, error boundary, event pump, worker runtime, Buffer, Promise
+├── quark-crypto       Crypto module
+├── quark-formats      JSON, TOML, YAML, MessagePack, CBOR, CSV, UUID and URL modules
+├── quark-image        Image module
+├── quark-locale       Locale module
+├── quark-math         Math, Geometry, BigInt and Decimal modules
+├── quark-messaging    MQTT and NATS modules
+├── quark-net          Net, TCP, UDP, WebSocket and HTTP modules
+├── quark-random       Random and ProcGen modules
+├── quark-redis        Redis module
+├── quark-spatial      Pathfinding and Spatial modules
+├── quark-testing      Testing module
+├── quark-text         Regex, Text and Template modules
+├── quark-time         Time module
+├── quark-utilities    RateLimit, Cache, PriorityQueue, RingBuffer, Bitset, Metrics and Log modules
+└── quark-worker       Worker module
 quark/             the cdylib (luaopen_quark), selects modules through Cargo features
 packages/          the c-module package and the test suite
 tools/test-host/   runs a package outside of nanos world

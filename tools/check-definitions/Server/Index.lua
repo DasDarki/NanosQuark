@@ -1,5 +1,5 @@
 local LIBRARY = os.getenv("QUARK_LIBRARY") or "library"
-local FILES = { "quark", "crypto", "formats", "compression", "net", "redis", "messaging", "random", "text", "time", "locale", "utilities", "testing", "math", "spatial", "procgen", "image" }
+local FILES = { "quark", "crypto", "formats", "compression", "net", "redis", "messaging", "random", "text", "time", "locale", "utilities", "testing", "math", "spatial", "procgen", "image", "worker" }
 
 local classes, variables, parents, functions, root_fields = {}, {}, {}, {}, {}
 
@@ -134,6 +134,7 @@ local objects = {
     QuarkGraph = Quark.Pathfinding.Graph(),
     QuarkSpatialHash = Quark.Spatial.Hash(),
     QuarkKDTree = Quark.Spatial.KDTree({ { X = 0, Y = 0, Z = 0 } }),
+    QuarkWorkerPool = Quark.Worker.Pool("", { Size = 1 }),
 }
 for class, object in pairs(objects) do
     check_object(class, object)

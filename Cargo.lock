@@ -2836,6 +2836,7 @@ dependencies = [
  "quark-text",
  "quark-time",
  "quark-utilities",
+ "quark-worker",
 ]
 
 [[package]]
@@ -3073,6 +3074,14 @@ dependencies = [
  "mlua",
  "quark-core",
  "serde_json",
+]
+
+[[package]]
+name = "quark-worker"
+version = "0.1.0"
+dependencies = [
+ "mlua",
+ "quark-core",
 ]
 
 [[package]]

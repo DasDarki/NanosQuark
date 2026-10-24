@@ -1,0 +1,11 @@
+[package]
+name = "quark-worker"
+description = "Sandboxed Lua states on worker threads for Quark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+quark-core.workspace = true
+mlua.workspace = true

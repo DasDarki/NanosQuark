@@ -27,10 +27,11 @@ quark-spatial = { workspace = true, optional = true }
 quark-text = { workspace = true, optional = true }
 quark-time = { workspace = true, optional = true }
 quark-utilities = { workspace = true, optional = true }
+quark-worker = { workspace = true, optional = true }
 quark-testing = { workspace = true, optional = true }
 
 [features]
-default = ["compression", "crypto", "formats", "image", "locale", "math", "messaging", "net", "random", "redis", "spatial", "testing", "text", "time", "utilities"]
+default = ["compression", "crypto", "formats", "image", "locale", "math", "messaging", "net", "random", "redis", "spatial", "testing", "text", "time", "utilities", "worker"]
 compression = ["dep:quark-compression"]
 crypto = ["dep:quark-crypto"]
 formats = ["dep:quark-formats"]
@@ -46,3 +47,4 @@ testing = ["dep:quark-testing"]
 text = ["dep:quark-text"]
 time = ["dep:quark-time"]
 utilities = ["dep:quark-utilities"]
+worker = ["dep:quark-worker"]

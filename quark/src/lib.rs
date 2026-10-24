@@ -225,6 +225,11 @@ const MODULES: &[Module] = &[
         name: "Spatial",
         build: quark_spatial::spatial,
     },
+    #[cfg(feature = "worker")]
+    Module {
+        name: "Worker",
+        build: quark_worker::build,
+    },
     #[cfg(feature = "testing")]
     Module {
         name: "Testing",
