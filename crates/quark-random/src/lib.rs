@@ -4,6 +4,7 @@ mod noise;
 mod operations;
 mod picker;
 mod poisson;
+mod procgen;
 mod rng;
 
 use mlua::prelude::*;
@@ -11,6 +12,7 @@ use mlua::prelude::*;
 use generator::Generator;
 
 pub use self::generator::with_rng;
+pub use self::procgen::build as procgen;
 pub use self::rng::Rng;
 
 const LOOT_SOURCE: &str = include_str!("loot.lua");

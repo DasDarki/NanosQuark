@@ -11,7 +11,7 @@ const MAX_SAMPLES: usize = 16 * 1024 * 1024;
 
 pub struct Noise(Arc<Sampler>);
 
-struct Sampler {
+pub(crate) struct Sampler {
     noise: FastNoiseLite,
     warp: Option<FastNoiseLite>,
 }
@@ -31,7 +31,7 @@ impl Sampler {
         }
     }
 
-    fn sample(&self, x: f64, y: f64, z: Option<f64>) -> f32 {
+    pub(crate) fn sample(&self, x: f64, y: f64, z: Option<f64>) -> f32 {
         match z {
             Some(z) => {
                 let (x, y, z) = self.warp_3d(x, y, z);
@@ -114,7 +114,7 @@ fn create_warp(options: &Options, seed: i32, frequency: f32) -> LuaResult<FastNo
     Ok(warp)
 }
 
-fn create(options: &Options) -> LuaResult<Sampler> {
+pub(crate) fn create(options: &Options) -> LuaResult<Sampler> {
     let seed = read_seed(options, 1337)?;
     let mut noise = FastNoiseLite::with_seed(seed);
 

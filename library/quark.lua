@@ -30,6 +30,7 @@
 ---@field Net QuarkNetModule
 ---@field Pathfinding QuarkPathfindingModule
 ---@field PriorityQueue QuarkPriorityQueueModule
+---@field ProcGen QuarkProcGenModule
 ---@field Promise QuarkPromiseModule
 ---@field Random QuarkRandomModule
 ---@field RateLimit QuarkRateLimitModule

@@ -353,3 +353,67 @@ Test.Describe("Random.PoissonDisk", function()
         Expect(function() Random.PoissonDisk(10, 10, 0) end):ToThrow("radius")
     end)
 end)
+
+Test.Describe("ProcGen", function()
+    local ProcGen = Quark.ProcGen
+    local Random = Quark.Random
+    local base = Quark.Buffer.GetIndexBase()
+
+    local function all_reachable(map)
+        local width, height = map:GetSize()
+        local grid = Quark.Pathfinding.Grid(width, height, { Diagonal = false })
+        grid:LoadCosts(map:ToCosts())
+        local floors = map:GetFloorCells()
+        local field = grid:FlowField(floors[1])
+        for _, cell in ipairs(floors) do
+            if not field:IsReachable(cell.X, cell.Y) then
+                return false
+            end
+        end
+        return #floors > 0
+    end
+
+    Test.It("generates connected caves", function()
+        local map = ProcGen.Caves(60, 40, { Generator = Random.New(7) })
+        Expect({ map:GetSize() }):ToEqual({ 60, 40 })
+        for x = base, base + 59 do
+            Expect(map:GetTile(x, base)):ToBe(ProcGen.Tile.Wall)
+            Expect(map:IsWalkable(x, base + 39)):ToBe(false)
+        end
+        Expect(all_reachable(map)):ToBe(true)
+        Expect(ProcGen.Caves(60, 40, { Generator = Random.New(7) }):ToText()):ToBe(map:ToText())
+        Expect(#map:ToText()):ToBe(61 * 40)
+        Expect(map:GetTiles():GetSize()):ToBe(2400)
+        Expect(function() ProcGen.Caves(2, 2) end):ToThrow("at least 3 by 3")
+    end)
+
+    Test.It("generates dungeons with connected rooms", function()
+        local map = ProcGen.Dungeon(80, 50, { Generator = Random.New(11), MinRoomSize = 4, MaxRoomSize = 9 })
+        local rooms = map:GetRooms()
+        Expect(#rooms >= 5):ToBe(true)
+        for index, room in ipairs(rooms) do
+            Expect(map:GetTile(room.Center.X, room.Center.Y)):ToBe(ProcGen.Tile.Floor)
+            for other = index + 1, #rooms do
+                local second = rooms[other]
+                local separate = room.X + room.Width < second.X or second.X + second.Width < room.X
+                    or room.Y + room.Height < second.Y or second.Y + second.Height < room.Y
+                Expect(separate):ToBe(true)
+            end
+        end
+        Expect(all_reachable(map)):ToBe(true)
+        Expect(map:ToText()):ToContain("+")
+        local plain = ProcGen.Dungeon(80, 50, { Generator = Random.New(11), MinRoomSize = 4, MaxRoomSize = 9, Doors = false })
+        Expect(plain:ToText():find("+", 1, true)):ToBeNil()
+    end)
+
+    Test.It("generates heightmaps", function()
+        local heights = ProcGen.Heightmap(64, 64, { Seed = 3, Fractal = "FBm", Octaves = 4, Frequency = 0.05, Island = true, Erosion = 3, Min = 0, Max = 1000 })
+        Expect(heights:GetSize()):ToBe(64 * 64 * 4)
+        local view = heights:View("f32")
+        Expect(view:Min()):ToBeCloseTo(0, 0.01)
+        Expect(view:Max()):ToBeCloseTo(1000, 0.01)
+        Expect(view[base] < 100):ToBe(true)
+        local again = Quark.Await(ProcGen.Heightmap, 64, 64, { Seed = 3, Fractal = "FBm", Octaves = 4, Frequency = 0.05, Island = true, Erosion = 3, Min = 0, Max = 1000 })
+        Expect(again:GetBytes()):ToBe(heights:GetBytes())
+    end)
+end)

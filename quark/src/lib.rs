@@ -110,6 +110,11 @@ const MODULES: &[Module] = &[
         name: "Random",
         build: quark_random::build,
     },
+    #[cfg(feature = "random")]
+    Module {
+        name: "ProcGen",
+        build: quark_random::procgen,
+    },
     #[cfg(feature = "text")]
     Module {
         name: "Regex",
