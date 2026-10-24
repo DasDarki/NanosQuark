@@ -114,9 +114,9 @@ Status: `[x]` done, `[ ]` planned. Function names are sketches, final APIs follo
 
 Lua code cannot run on worker threads, so heavy computation means native algorithms fed with data. Every algorithm gets a sync variant for small inputs and an async variant for large ones.
 
-- [ ] Pathfinding: A*, Dijkstra and flow fields on grids and navigation graphs
-- [ ] Spatial indexing: spatial hash and KD-tree for "players near this point" or nearest neighbour queries, rebuilt per tick from a buffer
-- [ ] Bulk operations on buffers: sort, filter, distance checks many against many
+- [x] Pathfinding: A*, Dijkstra and flow fields on grids and navigation graphs
+- [x] Spatial indexing: spatial hash and KD-tree for "players near this point" or nearest neighbour queries, also from buffers
+- [x] Bulk operations on buffers: sort, statistics, distance checks many against many
 - [ ] Procedural generation: heightmaps, cave generation, dungeon layouts, Poisson disk sampling for spawn points
 - [ ] Image processing: decode, resize and encode PNG / JPEG, for example for generated minimaps
 - [ ] Workers: a separate, sandboxed Lua state on a worker thread running self contained code, with messages passed by value (`Quark.Worker.Run(code, data, callback)`). No access to the nanos world API, but real parallel Lua

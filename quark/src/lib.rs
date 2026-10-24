@@ -205,6 +205,16 @@ const MODULES: &[Module] = &[
         name: "Redis",
         build: quark_redis::build,
     },
+    #[cfg(feature = "spatial")]
+    Module {
+        name: "Pathfinding",
+        build: quark_spatial::pathfinding,
+    },
+    #[cfg(feature = "spatial")]
+    Module {
+        name: "Spatial",
+        build: quark_spatial::spatial,
+    },
     #[cfg(feature = "testing")]
     Module {
         name: "Testing",

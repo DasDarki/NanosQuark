@@ -5,7 +5,6 @@ mod geometry;
 mod quaternion;
 mod scalar;
 mod statistics;
-mod vector;
 
 use mlua::prelude::*;
 

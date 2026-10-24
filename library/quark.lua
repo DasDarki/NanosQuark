@@ -28,6 +28,7 @@
 ---@field Metrics QuarkMetricsModule
 ---@field NATS QuarkNATSModule
 ---@field Net QuarkNetModule
+---@field Pathfinding QuarkPathfindingModule
 ---@field PriorityQueue QuarkPriorityQueueModule
 ---@field Promise QuarkPromiseModule
 ---@field Random QuarkRandomModule
@@ -35,6 +36,7 @@
 ---@field Redis QuarkRedisModule
 ---@field Regex QuarkRegexModule
 ---@field RingBuffer QuarkRingBufferModule
+---@field Spatial QuarkSpatialModule
 ---@field TCP QuarkTCPModule
 ---@field TOML QuarkTOMLModule
 ---@field Tar QuarkArchiveModule

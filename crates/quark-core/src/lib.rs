@@ -11,6 +11,7 @@ mod registry;
 mod runtime;
 mod task;
 mod values;
+mod vector;
 
 pub use buffer::{Binary, Buffer, build as buffer, package_base as index_base};
 pub use buffer_view::view_numbers;
@@ -28,3 +29,6 @@ pub use registry::{Module, create_root};
 pub use runtime::runtime;
 pub use task::{Task, run, run_async, spawn_blocking, spawn_future};
 pub use values::{Bytes, Object};
+pub use vector::{
+    Rotator, Vec3, is_vector, make_rotator, make_vector, make_vector2, read_rotator, read_vector,
+};

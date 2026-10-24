@@ -2744,6 +2744,7 @@ dependencies = [
  "quark-net",
  "quark-random",
  "quark-redis",
+ "quark-spatial",
  "quark-testing",
  "quark-text",
  "quark-time",
@@ -2923,6 +2924,14 @@ dependencies = [
  "redis",
  "tokio",
  "tokio-rustls",
+]
+
+[[package]]
+name = "quark-spatial"
+version = "0.1.0"
+dependencies = [
+ "mlua",
+ "quark-core",
 ]
 
 [[package]]

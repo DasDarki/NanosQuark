@@ -19,6 +19,7 @@ quark-messaging = { path = "crates/quark-messaging" }
 quark-net = { path = "crates/quark-net" }
 quark-random = { path = "crates/quark-random" }
 quark-redis = { path = "crates/quark-redis" }
+quark-spatial = { path = "crates/quark-spatial" }
 quark-text = { path = "crates/quark-text" }
 quark-time = { path = "crates/quark-time" }
 quark-utilities = { path = "crates/quark-utilities" }

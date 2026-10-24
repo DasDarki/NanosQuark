@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 
 use mlua::prelude::*;
 
-use crate::vector::{Vec3, is_vector, make_vector, read_vector};
+use quark_core::{Vec3, is_vector, make_vector, read_vector};
 
 const EASINGS: &[&str] = &[
     "Linear",
@@ -223,7 +223,7 @@ fn catmull_rom_segment(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f64, alpha: f6
     let t = t1 + (t2 - t1) * t;
     let blend = |a: Vec3, b: Vec3, start: f64, end: f64| {
         a.scale((end - t) / (end - start))
-            .add(b.scale((t - start) / (end - start)))
+            .plus(b.scale((t - start) / (end - start)))
     };
     let a1 = blend(p0, p1, t0, t1);
     let a2 = blend(p1, p2, t1, t2);

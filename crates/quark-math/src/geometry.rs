@@ -5,7 +5,7 @@ use quark_core::{Options, create_userdata};
 use quark_random::{Rng, with_rng};
 
 use crate::quaternion::{Quaternion, read_quaternion};
-use crate::vector::{Vec3, make_vector, make_vector2, read_vector};
+use quark_core::{Vec3, make_vector, make_vector2, read_vector};
 
 const MAX_POINTS: usize = 1_000_000;
 
@@ -101,7 +101,7 @@ pub fn closest_on_segment(point: Vec3, start: Vec3, end: Vec3) -> Vec3 {
         return start;
     }
     let t = (point.subtract(start).dot(direction) / length).clamp(0.0, 1.0);
-    start.add(direction.scale(t))
+    start.plus(direction.scale(t))
 }
 
 fn distance_2d(first: (f64, f64), second: (f64, f64)) -> f64 {
@@ -355,7 +355,7 @@ impl Shape {
             }
             Shape::Sphere { center, radius } => (
                 center.subtract(Vec3::new(*radius, *radius, *radius)),
-                center.add(Vec3::new(*radius, *radius, *radius)),
+                center.plus(Vec3::new(*radius, *radius, *radius)),
             ),
             Shape::Box {
                 center,
@@ -379,7 +379,7 @@ impl Shape {
                         }
                     }
                 }
-                (center.subtract(half), center.add(half))
+                (center.subtract(half), center.plus(half))
             }
             Shape::Cylinder {
                 center,
@@ -387,7 +387,7 @@ impl Shape {
                 half_height,
             } => (
                 center.subtract(Vec3::new(*radius, *radius, *half_height)),
-                center.add(Vec3::new(*radius, *radius, *half_height)),
+                center.plus(Vec3::new(*radius, *radius, *half_height)),
             ),
             Shape::Capsule { start, end, radius } => (
                 Vec3::new(
@@ -489,7 +489,7 @@ impl Shape {
                 let angle = TAU * rng.float();
                 let ring = (1.0 - z * z).sqrt();
                 let distance = radius * rng.float().cbrt();
-                center.add(Vec3::new(ring * angle.cos(), ring * angle.sin(), z).scale(distance))
+                center.plus(Vec3::new(ring * angle.cos(), ring * angle.sin(), z).scale(distance))
             }
             Shape::Box {
                 center,
@@ -501,7 +501,7 @@ impl Shape {
                     (rng.float() * 2.0 - 1.0) * extent.y,
                     (rng.float() * 2.0 - 1.0) * extent.z,
                 );
-                center.add(rotation.rotate(local))
+                center.plus(rotation.rotate(local))
             }
             Shape::Cylinder {
                 center,
@@ -509,7 +509,7 @@ impl Shape {
                 half_height,
             } => {
                 let (x, y) = random_in_disc(rng, *radius);
-                center.add(Vec3::new(x, y, (rng.float() * 2.0 - 1.0) * half_height))
+                center.plus(Vec3::new(x, y, (rng.float() * 2.0 - 1.0) * half_height))
             }
             Shape::Capsule { .. } => {
                 let (minimum, maximum) = self.bounds();
@@ -579,7 +579,7 @@ impl Shape {
                 Vec3::new(x, y, 0.0)
             }
             Shape::Sphere { center, radius } => {
-                center.add(point.subtract(*center).normalized().scale(*radius))
+                center.plus(point.subtract(*center).normalized().scale(*radius))
             }
             Shape::Box {
                 center,
@@ -592,7 +592,7 @@ impl Shape {
                     local.y.clamp(-extent.y, extent.y),
                     local.z.clamp(-extent.z, extent.z),
                 );
-                center.add(rotation.rotate(clamped))
+                center.plus(rotation.rotate(clamped))
             }
             Shape::Cylinder {
                 center,
@@ -616,7 +616,7 @@ impl Shape {
             }
             Shape::Capsule { start, end, radius } => {
                 let axis = closest_on_segment(point, *start, *end);
-                axis.add(point.subtract(axis).normalized().scale(*radius))
+                axis.plus(point.subtract(axis).normalized().scale(*radius))
             }
             Shape::Prism {
                 polygon,
@@ -1142,7 +1142,7 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
             let padding = Vec3::new(padding, padding, padding);
             (
                 make_vector(lua, minimum.subtract(padding))?,
-                make_vector(lua, maximum.add(padding))?,
+                make_vector(lua, maximum.plus(padding))?,
             )
                 .into_lua_multi(lua)
         })?,

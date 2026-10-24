@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 use mlua::prelude::*;
 use quark_core::{Object, create_userdata};
 
-use crate::vector::{Rotator, Vec3, make_rotator, make_vector, read_rotator, read_vector};
+use quark_core::{Rotator, Vec3, make_rotator, make_vector, read_rotator, read_vector};
 
 const RADIANS: f64 = PI / 180.0;
 const DEGREES: f64 = 180.0 / PI;
@@ -160,7 +160,7 @@ impl Quaternion {
     pub fn rotate(self, vector: Vec3) -> Vec3 {
         let axis = Vec3::new(self.x, self.y, self.z);
         let t = axis.cross(vector).scale(2.0);
-        vector.add(t.scale(self.w)).add(axis.cross(t))
+        vector.plus(t.scale(self.w)).plus(axis.cross(t))
     }
 
     pub fn slerp(self, other: Quaternion, t: f64) -> Self {

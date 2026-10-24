@@ -1,5 +1,5 @@
+use crate::package_environment;
 use mlua::prelude::*;
-use quark_core::package_environment;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Vec3 {
@@ -20,7 +20,7 @@ impl Vec3 {
         Vec3 { x, y, z }
     }
 
-    pub fn add(self, other: Vec3) -> Vec3 {
+    pub fn plus(self, other: Vec3) -> Vec3 {
         Vec3::new(self.x + other.x, self.y + other.y, self.z + other.z)
     }
 
@@ -58,7 +58,7 @@ impl Vec3 {
     }
 
     pub fn lerp(self, other: Vec3, t: f64) -> Vec3 {
-        self.add(other.subtract(self).scale(t))
+        self.plus(other.subtract(self).scale(t))
     }
 }
 
