@@ -117,10 +117,7 @@ impl Polygon {
         let indices = earcutr::earcut(&flat, &[], 2).map_err(|error| {
             LuaError::runtime(format!("the polygon cannot be triangulated: {error:?}"))
         })?;
-        let triangles: Vec<[usize; 3]> = indices
-            .chunks_exact(3)
-            .map(|chunk| [chunk[0], chunk[1], chunk[2]])
-            .collect();
+        let triangles: Vec<[usize; 3]> = indices.as_chunks::<3>().0.to_vec();
         if triangles.is_empty() {
             return Err(LuaError::runtime("the polygon has no area"));
         }
@@ -1082,7 +1079,7 @@ pub fn build(lua: &Lua) -> LuaResult<LuaTable> {
                 .collect();
             let triangulation = delaunator::triangulate(&points);
             let list = lua.create_table_with_capacity(triangulation.triangles.len() / 3, 0)?;
-            for chunk in triangulation.triangles.chunks_exact(3) {
+            for chunk in triangulation.triangles.as_chunks::<3>().0 {
                 list.raw_push(lua.create_sequence_from([
                     chunk[0] + 1,
                     chunk[1] + 1,

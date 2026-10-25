@@ -279,8 +279,10 @@ pub fn read_point_set(lua: &Lua, points: &LuaValue) -> LuaResult<Vec<Vec3>> {
                 ));
             }
             Ok(numbers
-                .chunks_exact(3)
-                .map(|chunk| Vec3::new(chunk[0], chunk[1], chunk[2]))
+                .as_chunks::<3>()
+                .0
+                .iter()
+                .map(|[x, y, z]| Vec3::new(*x, *y, *z))
                 .collect())
         }
         other => Err(LuaError::runtime(format!(
