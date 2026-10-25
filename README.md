@@ -131,7 +131,7 @@ npm install
 npm start
 ```
 
-`npm run build` writes the static site to `website/build`, `npm run deploy` publishes it to GitHub Pages.
+`npm run build` writes the static site to `website/build`, `npm run deploy` publishes it to GitHub Pages at [nanosquark.dasdarki.de](https://nanosquark.dasdarki.de).
 
 ## Building
 

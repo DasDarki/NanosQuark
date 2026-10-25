@@ -11,8 +11,8 @@ const config: Config = {
   tagline: 'Native utilities for nanos world',
   favicon: 'img/favicon.svg',
 
-  url: `https://${GITHUB_OWNER.toLowerCase()}.github.io`,
-  baseUrl: `/${GITHUB_REPO}/`,
+  url: 'https://nanosquark.dasdarki.de',
+  baseUrl: '/',
 
   organizationName: GITHUB_OWNER,
   projectName: GITHUB_REPO,
