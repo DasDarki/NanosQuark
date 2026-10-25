@@ -28,4 +28,4 @@ local formula = Quark.Math.Compile("2 * x + 1")
 local value = formula({ x = 3 })
 ```
 
-It requires Nebra 0.5.12 or newer.
+It requires Nebra 0.5.13 or newer.
