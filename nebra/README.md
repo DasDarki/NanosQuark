@@ -35,7 +35,7 @@ local formula = Quark.Math.Compile("2 * x + 1")
 local value = formula({ x = 3 })
 ```
 
-Requires Nebra 0.5.11 or newer.
+Requires Nebra 0.5.12 or newer.
 
 ## Regenerating
 
