@@ -65,28 +65,28 @@ declare interface Quark__Static
     --- Promise resolving after the delay.
     function Delay(milliseconds: number): QuarkPromise
     --- Sets the configuration once, see docs/configuration.md.
-    function Configure(options: { [string]: any }): void
+    function Configure(options: { TickBudget: number?, WorkerThreads: number?, BlockingThreads: number?, Network: ({ AllowConnect: string[]?, AllowListen: ((number | string)[])? })? }): void
     --- The current configuration.
     function GetConfiguration(): { TickBudget: number, WorkerThreads: number, BlockingThreads: number, Locked: boolean, Source: string?, Network: { AllowConnect: string[]?, AllowListen: string[]? } }
 end
 
 --- Handle of asynchronous work started with a callback.
 @side(server)
-declare interface QuarkTask
+declare class QuarkTask
     --- Stops waiting for the result, the callback is never called. Returns whether the task was pending.
-    method Cancel(): boolean
-    method IsDone(): boolean
-    method IsCancelled(): boolean
+    function Cancel(): boolean
+    function IsDone(): boolean
+    function IsCancelled(): boolean
 end
 
 @side(server)
-declare interface QuarkPromise
-    method Then(on_fulfilled: nil | ((...any) -> ...any), on_rejected: nil | ((any) -> ...any)): QuarkPromise
-    method Catch(on_rejected: (any) -> ...any): QuarkPromise
-    method Finally(callback: () -> void): QuarkPromise
+declare class QuarkPromise
+    function Then(on_fulfilled: ((...any) -> ...any)?, on_rejected: ((any) -> ...any)?): QuarkPromise
+    function Catch(on_rejected: (any) -> ...any): QuarkPromise
+    function Finally(callback: () -> void): QuarkPromise
     --- Rejects a pending promise and cancels its native task.
-    method Cancel(reason: any): boolean
-    method GetState(): string
+    function Cancel(reason: any): boolean
+    function GetState(): string
 end
 
 @side(server)
@@ -107,53 +107,57 @@ end
 
 --- Mutable byte array, offsets start at the index base of the package (0 by default).
 @side(server)
-declare interface QuarkBuffer
-    method Read(kind: string, offset: number): number
-    method Write(kind: string, offset: number, value: number): void
-    method ReadArray(kind: string, offset: number, count: number): number[]
-    method WriteArray(kind: string, offset: number, values: number[]): void
+declare class QuarkBuffer
+    operator #(): number
+    function Read(kind: string, offset: number): number
+    function Write(kind: string, offset: number, value: number): void
+    function ReadArray(kind: string, offset: number, count: number): number[]
+    function WriteArray(kind: string, offset: number, values: number[]): void
     --- Writes a number at the end.
-    method Append(kind: string, value: number): QuarkBuffer
-    method ReadString(offset: number, length: number?): string
-    method WriteString(offset: number, data: string | QuarkBuffer): void
-    method AppendString(data: string | QuarkBuffer): QuarkBuffer
-    method GetBytes(start: number?, finish: number?): string
-    method Slice(start: number?, finish: number?): QuarkBuffer
-    method CopyFrom(source: string | QuarkBuffer, offset: number?, source_start: number?, source_finish: number?): void
-    method Fill(byte: number, start: number?, finish: number?): void
-    method Resize(size: number, fill: number?): void
-    method GetSize(): number
-    method ToHex(): string
-    method Equals(other: QuarkBuffer): boolean
-    method Clone(): QuarkBuffer
-    method SetIndexBase(base: number): QuarkBuffer
-    method GetIndexBase(): number
+    function Append(kind: string, value: number): QuarkBuffer
+    function ReadString(offset: number, length: number?): string
+    function WriteString(offset: number, data: string | QuarkBuffer): void
+    function AppendString(data: string | QuarkBuffer): QuarkBuffer
+    function GetBytes(start: number?, finish: number?): string
+    function Slice(start: number?, finish: number?): QuarkBuffer
+    function CopyFrom(source: string | QuarkBuffer, offset: number?, source_start: number?, source_finish: number?): void
+    function Fill(byte: number, start: number?, finish: number?): void
+    function Resize(size: number, fill: number?): void
+    function GetSize(): number
+    function ToHex(): string
+    function Equals(other: QuarkBuffer): boolean
+    function Clone(): QuarkBuffer
+    function SetIndexBase(base: number): QuarkBuffer
+    function GetIndexBase(): number
     --- Typed view on the buffer.
-    method View(kind: string, offset: number?, count: number?): QuarkBufferView
+    function View(kind: string, offset: number?, count: number?): QuarkBufferView
 end
 
 --- Array of numbers of one type inside a buffer, `view[index]` reads and writes values.
 @side(server)
-declare interface QuarkBufferView
-    method Get(index: number): number
-    method Set(index: number, value: number): void
-    method ToTable(): number[]
-    method FromTable(values: number[]): void
-    method Fill(value: number): void
+declare class QuarkBufferView
+    operator [](index: number): number
+    operator []=(index: number, value: number): void
+    operator #(): number
+    function Get(index: number): number
+    function Set(index: number, value: number): void
+    function ToTable(): number[]
+    function FromTable(values: number[]): void
+    function Fill(value: number): void
     --- Multiplies every value and adds `offset`.
-    method Scale(factor: number, offset: number?): void
-    method Sum(): number
-    method Average(): number?
+    function Scale(factor: number, offset: number?): void
+    function Sum(): number
+    function Average(): number?
     --- @return value
     --- @return index
-    method Min(): (number?, number?)
+    function Min(): (number?, number?)
     --- @return value
     --- @return index
-    method Max(): (number?, number?)
-    method Sort(descending: boolean?): void
-    method GetCount(): number
-    method GetType(): string
-    method GetBuffer(): QuarkBuffer
+    function Max(): (number?, number?)
+    function Sort(descending: boolean?): void
+    function GetCount(): number
+    function GetType(): string
+    function GetBuffer(): QuarkBuffer
 end
 
 @side(server)
@@ -170,38 +174,38 @@ end
 
 --- Objects with events, see docs/net.md#events.
 @side(server)
-declare interface QuarkEmitter
+declare class QuarkEmitter
     --- Adds an event handler and returns it.
-    method Subscribe(event: string, handler: function): function
+    function Subscribe(event: string, handler: function): function
     --- Removes one handler, or all handlers of the event.
-    method Unsubscribe(event: string, handler: function?): void
+    function Unsubscribe(event: string, handler: function?): void
 end
 
 --- Compresses or decompresses data piece by piece.
 @side(server)
-declare interface QuarkCompressionStream
+declare class QuarkCompressionStream
     --- Adds input, returns the output produced so far.
-    method Write(data: string | QuarkBuffer): string
-    method Flush(): string
-    method Finish(): string
-    method IsFinished(): boolean
-    method GetTotalIn(): number
-    method GetTotalOut(): number
+    function Write(data: string | QuarkBuffer): string
+    function Flush(): string
+    function Finish(): string
+    function IsFinished(): boolean
+    function GetTotalIn(): number
+    function GetTotalOut(): number
 end
 
 @side(server)
 declare interface QuarkCompressionModule
     --- @return message
-    function Compress(algorithm: string, data: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (string?, string?)
+    function Compress(algorithm: string, data: string | QuarkBuffer, options: { Level: number? }?, callback: function?): (string?, string?)
     --- @return message
-    function Decompress(algorithm: string, data: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (string?, string?)
+    function Decompress(algorithm: string, data: string | QuarkBuffer, options: { MaxSize: number? }?, callback: function?): (string?, string?)
     function Detect(data: string | QuarkBuffer): string?
     function Algorithms(): string[]
-    function Stream(algorithm: string, options: { [string]: any }?): QuarkCompressionStream
+    function Stream(algorithm: string, options: { Mode: string?, Level: number?, MaxSize: number? }?): QuarkCompressionStream
     --- @return message
-    function CompressFile(algorithm: string, source: string, target: string, options: { [string]: any }?, callback: function?): ({ Input: number, Output: number }?, string?)
+    function CompressFile(algorithm: string, source: string, target: string, options: { Level: number? }?, callback: function?): ({ Input: number, Output: number }?, string?)
     --- @return message
-    function DecompressFile(algorithm: string, source: string, target: string, options: { [string]: any }?, callback: function?): ({ Input: number, Output: number }?, string?)
+    function DecompressFile(algorithm: string, source: string, target: string, options: { MaxSize: number? }?, callback: function?): ({ Input: number, Output: number }?, string?)
 end
 
 --- An archive entry.
@@ -220,47 +224,47 @@ end
 @side(server)
 declare interface QuarkArchiveModule
     --- @return message
-    function Create(entries: { [any]: any }, options: { [string]: any }?, callback: function?): (string?, string?)
+    function Create(entries: { [any]: any }, options: { Method: string?, Level: number?, Password: string?, Encryption: string?, Compression: string? }?, callback: function?): (string?, string?)
     --- @return message
-    function Extract(archive: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (QuarkArchiveEntry[]?, string?)
+    function Extract(archive: string | QuarkBuffer, options: { MaxSize: number?, Password: string? }?, callback: function?): (QuarkArchiveEntry[]?, string?)
     --- @return message
-    function List(archive: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (QuarkArchiveEntry[]?, string?)
+    function List(archive: string | QuarkBuffer, options: { Password: string? }?, callback: function?): (QuarkArchiveEntry[]?, string?)
 end
 
 @side(server)
-declare interface QuarkHasher
+declare class QuarkHasher
     --- Adds data, chainable.
-    method Update(data: string | QuarkBuffer): QuarkHasher
+    function Update(data: string | QuarkBuffer): QuarkHasher
     --- The digest.
-    method Finalize(format: string?): string
+    function Finalize(format: string?): string
 end
 
 @side(server)
-declare interface QuarkPrivateKey
+declare class QuarkPrivateKey
     --- Signature of the data.
-    method Sign(data: string | QuarkBuffer, format_or_options: (string | { [string]: any })?): string
-    method GetPublicKey(): QuarkPublicKey
+    function Sign(data: string | QuarkBuffer, format_or_options: (string | { Format: string?, Padding: string?, Hash: string? })?): string
+    function GetPublicKey(): QuarkPublicKey
     --- Shared secret for X25519, P-256 and P-384, run it through HKDF.
-    method DeriveSharedSecret(public_key: QuarkPublicKey, format: string?): string
+    function DeriveSharedSecret(public_key: QuarkPublicKey, format: string?): string
     --- Plaintext of a sealed box.
     --- @return message
-    method Open(sealed: string | QuarkBuffer, associated_data: (string | QuarkBuffer)?): (string?, string?)
+    function Open(sealed: string | QuarkBuffer, associated_data: (string | QuarkBuffer)?): (string?, string?)
     --- PKCS#8 PEM, encrypted with the password if given.
-    method ExportPEM(password: string?): string
-    method ExportRaw(format: string?): string
-    method GetAlgorithm(): string
+    function ExportPEM(password: string?): string
+    function ExportRaw(format: string?): string
+    function GetAlgorithm(): string
 end
 
 @side(server)
-declare interface QuarkPublicKey
-    method Verify(data: string | QuarkBuffer, signature: string | QuarkBuffer, format_or_options: (string | { [string]: any })?): boolean
+declare class QuarkPublicKey
+    function Verify(data: string | QuarkBuffer, signature: string | QuarkBuffer, format_or_options: (string | { Format: string?, Padding: string?, Hash: string? })?): boolean
     --- Sealed box only the private key can open.
-    method Seal(data: string | QuarkBuffer, associated_data: (string | QuarkBuffer)?): string
+    function Seal(data: string | QuarkBuffer, associated_data: (string | QuarkBuffer)?): string
     --- RSA-OAEP ciphertext.
-    method Encrypt(data: string | QuarkBuffer, options: { [string]: any }?): string
-    method ExportPEM(): string
-    method ExportRaw(format: string?): string
-    method GetAlgorithm(): string
+    function Encrypt(data: string | QuarkBuffer, options: { Hash: string?, Label: string? }?): string
+    function ExportPEM(): string
+    function ExportRaw(format: string?): string
+    function GetAlgorithm(): string
 end
 
 @side(server)
@@ -279,16 +283,16 @@ declare interface QuarkCryptoModule
     function HMAC(algorithm: string, key: string | QuarkBuffer, data: string | QuarkBuffer, format: string?): string
     --- Constant time comparison.
     function HMACVerify(algorithm: string, key: string | QuarkBuffer, data: string | QuarkBuffer, mac: string, format: string?): boolean
-    function HKDF(key: string | QuarkBuffer, options: { [string]: any }?): string
+    function HKDF(key: string | QuarkBuffer, options: ({ Algorithm: string?, Salt: (string | QuarkBuffer)?, Info: (string | QuarkBuffer)?, Length: number?, Format: string? })?): string
     --- @return message
-    function PBKDF2(password: string | QuarkBuffer, salt: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (string?, string?)
+    function PBKDF2(password: string | QuarkBuffer, salt: string | QuarkBuffer, options: { Algorithm: string?, Iterations: number?, Length: number?, Format: string? }?, callback: function?): (string?, string?)
     --- Password hash in PHC format.
     --- @return message
-    function Argon2Hash(password: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (string?, string?)
+    function Argon2Hash(password: string | QuarkBuffer, options: { Variant: string?, MemoryCost: number?, TimeCost: number?, Parallelism: number? }?, callback: function?): (string?, string?)
     --- @return message
-    function BcryptHash(password: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (string?, string?)
+    function BcryptHash(password: string | QuarkBuffer, options: { Cost: number? }?, callback: function?): (string?, string?)
     --- @return message
-    function ScryptHash(password: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (string?, string?)
+    function ScryptHash(password: string | QuarkBuffer, options: { LogN: number?, R: number?, P: number? }?, callback: function?): (string?, string?)
     --- @return message
     function PasswordVerify(password: string | QuarkBuffer, hash: string, callback: function?): (boolean?, string?)
     --- @return message
@@ -305,26 +309,26 @@ declare interface QuarkCryptoModule
     function XChaCha20Encrypt(key: string | QuarkBuffer, plaintext: string | QuarkBuffer, associated_data: (string | QuarkBuffer)?): string
     --- @return message
     function XChaCha20Decrypt(key: string | QuarkBuffer, ciphertext: string | QuarkBuffer, associated_data: (string | QuarkBuffer)?): (string?, string?)
-    function GenerateKeyPair(algorithm: string, options: { [string]: any }?, callback: function?): (QuarkPrivateKey, QuarkPublicKey)
+    function GenerateKeyPair(algorithm: string, options: { Bits: number? }?, callback: function?): (QuarkPrivateKey, QuarkPublicKey)
     --- @return message
-    function ImportPrivateKey(data: string | QuarkBuffer, algorithm_or_options: (string | { [string]: any })?): (QuarkPrivateKey?, string?)
+    function ImportPrivateKey(data: string | QuarkBuffer, algorithm_or_options: (string | { Algorithm: string?, Password: string? })?): (QuarkPrivateKey?, string?)
     --- @return message
     function ImportPublicKey(data: string | QuarkBuffer, algorithm: string?): (QuarkPublicKey?, string?)
-    function JWTSign(claims: { [any]: any }, key: string | QuarkPrivateKey, options: { [string]: any }?): string
+    function JWTSign(claims: { [any]: any }, key: string | QuarkPrivateKey, options: { Algorithm: string?, ExpiresIn: number?, IssuedAt: boolean?, Header: { [any]: any }? }?): string
     --- @return claims
     --- @return header_or_reason
-    function JWTVerify(token: string, key: string | QuarkPublicKey | QuarkPrivateKey, options: { [string]: any }?): ({ [any]: any }?, { [any]: any } | string?)
+    function JWTVerify(token: string, key: string | QuarkPublicKey | QuarkPrivateKey, options: { Algorithms: string[]?, Leeway: number?, Issuer: string?, Audience: string? }?): ({ [any]: any }?, { [any]: any } | string?)
     --- Decodes without verifying.
     --- @return claims
     --- @return header_or_reason
     function JWTDecode(token: string): ({ [any]: any }?, { [any]: any } | string?)
     --- Base32 secret.
     function TOTPGenerateSecret(bytes: number?): string
-    function TOTP(secret: string, options: { [string]: any }?): string
-    function TOTPVerify(secret: string, code: string, options: { [string]: any }?): boolean
-    function HOTP(secret: string, counter: number, options: { [string]: any }?): string
+    function TOTP(secret: string, options: { Algorithm: string?, Digits: number?, Period: number?, Time: number? }?): string
+    function TOTPVerify(secret: string, code: string, options: { Algorithm: string?, Digits: number?, Period: number?, Time: number?, Window: number? }?): boolean
+    function HOTP(secret: string, counter: number, options: { Algorithm: string?, Digits: number? }?): string
     --- otpauth:// URI for QR codes.
-    function TOTPUri(secret: string, account: string, options: { [string]: any }?): string
+    function TOTPUri(secret: string, account: string, options: { Algorithm: string?, Digits: number?, Period: number?, Issuer: string? }?): string
     function RandomBytes(count: number): string
     function RandomInt(minimum: number, maximum: number): number
     function RandomString(length: number, alphabet: string?): string
@@ -351,9 +355,9 @@ declare interface QuarkDataFormat
     --- Marker for null values
     Null: userdata
     --- @return message
-    function Encode(value: any, options: { [string]: any }?, callback: function?): (string?, string?)
+    function Encode(value: any, options: { Pretty: boolean?, Indent: number?, EmptyTablesAsArrays: boolean? }?, callback: function?): (string?, string?)
     --- @return message
-    function Decode(input: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (any, string?)
+    function Decode(input: string | QuarkBuffer, options: { PreserveNull: boolean? }?, callback: function?): (any, string?)
     --- Marks a table to be encoded as an array.
     function Array(table: { [any]: any }?): { [any]: any }
     function IsNull(value: any): boolean
@@ -368,17 +372,17 @@ end
 
 --- Compiled JSON Schema validator.
 @side(server)
-declare interface QuarkJSONSchema
-    method Validate(value: any): (boolean, { Path: string, Message: string }[]?)
-    method IsValid(value: any): boolean
+declare class QuarkJSONSchema
+    function Validate(value: any): (boolean, { Path: string, Message: string }[]?)
+    function IsValid(value: any): boolean
 end
 
 @side(server)
 declare interface QuarkCSVModule
     --- @return message
-    function Decode(input: string | QuarkBuffer, options: { [string]: any }?, callback: function?): ({ [any]: any }[]?, string?)
+    function Decode(input: string | QuarkBuffer, options: { Header: boolean?, Delimiter: string?, Trim: boolean? }?, callback: function?): ({ [any]: any }[]?, string?)
     --- @return message
-    function Encode(rows: { [any]: any }[], options: { [string]: any }?, callback: function?): (string?, string?)
+    function Encode(rows: { [any]: any }[], options: { Columns: string[]?, Header: boolean?, Delimiter: string? }?, callback: function?): (string?, string?)
 end
 
 @side(server)
@@ -425,12 +429,12 @@ end
 @side(server)
 declare interface QuarkXMLModule
     --- @return message
-    function Decode(input: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (QuarkXMLElement?, string?)
+    function Decode(input: string | QuarkBuffer, options: { PreserveWhitespace: boolean? }?, callback: function?): (QuarkXMLElement?, string?)
     --- @return message
-    function Encode(element: { [string]: any }, options: { [string]: any }?, callback: function?): (string?, string?)
-    function Find(element: { [string]: any }, name: string): QuarkXMLElement?
-    function FindAll(element: { [string]: any }, name: string?): QuarkXMLElement[]
-    function GetText(element: { [string]: any }): string
+    function Encode(element: QuarkXMLElement, options: { Pretty: boolean?, Indent: number?, Declaration: boolean? }?, callback: function?): (string?, string?)
+    function Find(element: QuarkXMLElement, name: string): QuarkXMLElement?
+    function FindAll(element: QuarkXMLElement, name: string?): QuarkXMLElement[]
+    function GetText(element: QuarkXMLElement): string
 end
 
 @side(server)
@@ -443,103 +447,106 @@ end
 @side(server)
 declare interface QuarkTOMLModule
     --- @return message
-    function Encode(value: { [any]: any }, options: { [string]: any }?, callback: function?): (string?, string?)
+    function Encode(value: { [any]: any }, options: { Pretty: boolean? }?, callback: function?): (string?, string?)
     --- @return message
     function Decode(input: string | QuarkBuffer, options: { [any]: any }?, callback: function?): ({ [any]: any }?, string?)
 end
 
 @side(server)
-declare interface QuarkImage
+declare class QuarkImage
     --- @return width
     --- @return height
-    method GetSize(): (number, number)
+    function GetSize(): (number, number)
     --- @return r
     --- @return g
     --- @return b
     --- @return a
-    method GetPixel(x: number, y: number): (number, number, number, number)
-    method SetPixel(x: number, y: number, color: string | number[] | { [string]: any } | Color): void
-    method Fill(color: string | number[] | { [string]: any } | Color): void
-    method FillRect(x: number, y: number, width: number, height: number, color: string | number[] | { [string]: any } | Color): void
-    method DrawLine(x1: number, y1: number, x2: number, y2: number, color: string | number[] | { [string]: any } | Color, thickness: number?): void
-    method DrawCircle(x: number, y: number, radius: number, color: string | number[] | { [string]: any } | Color, filled: boolean?): void
-    method DrawImage(image: QuarkImage, x: number, y: number, options: { [string]: any }?): void
-    method Resize(width: number, height: number, filter: string?): QuarkImage
-    method Crop(x: number, y: number, width: number, height: number): QuarkImage
-    method Rotate(degrees: number): QuarkImage
-    method Flip(direction: string?): QuarkImage
-    method Blur(sigma: number): QuarkImage
-    method Grayscale(): QuarkImage
-    method Clone(): QuarkImage
-    method GetBytes(): string
+    function GetPixel(x: number, y: number): (number, number, number, number)
+    function SetPixel(x: number, y: number, color: string | number[] | { R: number, G: number, B: number, A: number? } | Color): void
+    function Fill(color: string | number[] | { R: number, G: number, B: number, A: number? } | Color): void
+    function FillRect(x: number, y: number, width: number, height: number, color: string | number[] | { R: number, G: number, B: number, A: number? } | Color): void
+    function DrawLine(x1: number, y1: number, x2: number, y2: number, color: string | number[] | { R: number, G: number, B: number, A: number? } | Color, thickness: number?): void
+    function DrawCircle(x: number, y: number, radius: number, color: string | number[] | { R: number, G: number, B: number, A: number? } | Color, filled: boolean?): void
+    function DrawImage(image: QuarkImage, x: number, y: number, options: { Opacity: number? }?): void
+    function Resize(width: number, height: number, filter: string?): QuarkImage
+    function Crop(x: number, y: number, width: number, height: number): QuarkImage
+    function Rotate(degrees: number): QuarkImage
+    function Flip(direction: string?): QuarkImage
+    function Blur(sigma: number): QuarkImage
+    function Grayscale(): QuarkImage
+    function Clone(): QuarkImage
+    function GetBytes(): string
     --- @return message
-    method Encode(format: string?, options: { [string]: any }?, callback: function?): (string?, string?)
+    function Encode(format: string?, options: { Quality: number? }?, callback: function?): (string?, string?)
 end
 
 @side(server)
 declare interface QuarkImageModule
-    function New(width: number, height: number, color: (string | number[] | { [string]: any } | Color)?): QuarkImage
+    function New(width: number, height: number, color: (string | number[] | { R: number, G: number, B: number, A: number? } | Color)?): QuarkImage
     --- @return message
     function Decode(data: string | QuarkBuffer, callback: function?): (QuarkImage?, string?)
-    function FromHeights(width: number, height: number, values: number[] | QuarkBufferView, options: { [string]: any }?): QuarkImage
-    function FromIndexed(width: number, height: number, data: string | QuarkBuffer | number[] | QuarkBufferView, palette: { [number]: string | number[] | { [string]: any } | Color }): QuarkImage
+    function FromHeights(width: number, height: number, values: number[] | QuarkBufferView, options: { Min: number?, Max: number?, Colors: any[][]? }?): QuarkImage
+    function FromIndexed(width: number, height: number, data: string | QuarkBuffer | number[] | QuarkBufferView, palette: { [number]: string | number[] | { R: number, G: number, B: number, A: number? } | Color }): QuarkImage
     function IsImage(value: any): boolean
 end
 
 --- Translations with Fluent.
 @side(server)
-declare interface QuarkLocale
+declare class QuarkLocale
     --- @return text
     --- @return found
     --- @return problems
-    method Format(language: string, id: string, arguments: { [any]: any }?): (string, boolean, string?)
-    method Bind(language: string): (string, { [any]: any }?) -> (string, boolean, string?)
+    function Format(language: string, id: string, arguments: { [any]: any }?): (string, boolean, string?)
+    function Bind(language: string): (string, { [any]: any }?) -> (string, boolean, string?)
     --- @return message
-    method Add(language: string, source: string): (boolean?, string?)
-    method Has(language: string, id: string): boolean
-    method Negotiate(requested: string | string[]): string?
-    method GetLocales(): string[]
-    method GetFallback(): string?
+    function Add(language: string, source: string): (boolean?, string?)
+    function Has(language: string, id: string): boolean
+    function Negotiate(requested: string | string[]): string?
+    function GetLocales(): string[]
+    function GetFallback(): string?
 end
 
 @side(server)
 declare interface QuarkLocaleModule
     --- @return message
-    function New(options: { [string]: any }?): (QuarkLocale?, string?)
+    function New(options: { Resources: { [string]: string }?, Fallback: string?, Isolating: boolean? }?): (QuarkLocale?, string?)
     function PluralCategory(language: string, number: number, type: string?): string
     function Negotiate(requested: string | string[], available: string[], fallback: string?): string?
 end
 
 @side(server)
-declare interface QuarkQuaternion
+declare class QuarkQuaternion
     X: number
     Y: number
     Z: number
     W: number
-    method Multiply(other: Rotator | { [string]: any } | number[] | QuarkQuaternion): QuarkQuaternion
-    method RotateVector(vector: Vector | { [string]: any } | number[]): Vector
-    method UnrotateVector(vector: Vector | { [string]: any } | number[]): Vector
-    method Inverse(): QuarkQuaternion
-    method Normalize(): QuarkQuaternion
-    method Dot(other: Rotator | { [string]: any } | number[] | QuarkQuaternion): number
-    method AngleTo(other: Rotator | { [string]: any } | number[] | QuarkQuaternion): number
-    method Slerp(other: Rotator | { [string]: any } | number[] | QuarkQuaternion, t: number): QuarkQuaternion
-    method ToRotator(): Rotator
+    operator *(other: QuarkQuaternion): QuarkQuaternion
+    operator *(other: Vector | { X: number, Y: number, Z: number? } | number[]): Vector
+    function Multiply(other: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[] | QuarkQuaternion): QuarkQuaternion
+    function RotateVector(vector: Vector | { X: number, Y: number, Z: number? } | number[]): Vector
+    function UnrotateVector(vector: Vector | { X: number, Y: number, Z: number? } | number[]): Vector
+    function Inverse(): QuarkQuaternion
+    function Normalize(): QuarkQuaternion
+    function Dot(other: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[] | QuarkQuaternion): number
+    function AngleTo(other: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[] | QuarkQuaternion): number
+    function Slerp(other: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[] | QuarkQuaternion, t: number): QuarkQuaternion
+    function ToRotator(): Rotator
     --- @return axis
     --- @return degrees
-    method ToAxisAngle(): (Vector, number)
-    method GetForward(): Vector
-    method GetRight(): Vector
-    method GetUp(): Vector
+    function ToAxisAngle(): (Vector, number)
+    function GetForward(): Vector
+    function GetRight(): Vector
+    function GetUp(): Vector
 end
 
 --- Compiled formula, can be called like a function.
 @side(server)
-declare interface QuarkExpression
+declare class QuarkExpression
+    operator ()(variables: ({ [string]: number | boolean })?): (number?, string?)
     --- @return message
-    method Evaluate(variables: ({ [string]: number | boolean })?): (number?, string?)
-    method GetVariables(): string[]
-    method GetSource(): string
+    function Evaluate(variables: ({ [string]: number | boolean })?): (number?, string?)
+    function GetVariables(): string[]
+    function GetSource(): string
 end
 
 @side(server)
@@ -547,7 +554,7 @@ declare interface QuarkMathModule
     Pi: number
     Tau: number
     function Clamp(value: number, minimum: number, maximum: number): number
-    function Lerp(from: number | Vector | { [string]: any } | number[], to: number | Vector | { [string]: any } | number[], t: number): number | Vector
+    function Lerp(from: number | Vector | { X: number, Y: number, Z: number? } | number[], to: number | Vector | { X: number, Y: number, Z: number? } | number[], t: number): number | Vector
     function InverseLerp(from: number, to: number, value: number): number
     function Remap(value: number, from_minimum: number, from_maximum: number, to_minimum: number, to_maximum: number, clamp: boolean?): number
     function SmoothStep(edge0: number, edge1: number, value: number): number
@@ -561,25 +568,25 @@ declare interface QuarkMathModule
     function IsNearlyEqual(first: number, second: number, tolerance: number?): boolean
     function Ease(name: string, t: number): number
     function GetEasings(): string[]
-    function Tween(from: number | Vector | { [string]: any } | number[], to: number | Vector | { [string]: any } | number[], t: number, easing: string?): number | Vector
-    function Bezier(points: (number | Vector | { [string]: any } | number[])[], t: number): number | Vector
-    function Spline(points: (number | Vector | { [string]: any } | number[])[], t: number, options: { [string]: any }?): number | Vector
-    function SampleSpline(points: (number | Vector | { [string]: any } | number[])[], count: number, options: { [string]: any }?): (number | Vector)[]
+    function Tween(from: number | Vector | { X: number, Y: number, Z: number? } | number[], to: number | Vector | { X: number, Y: number, Z: number? } | number[], t: number, easing: string?): number | Vector
+    function Bezier(points: (number | Vector | { X: number, Y: number, Z: number? } | number[])[], t: number): number | Vector
+    function Spline(points: (number | Vector | { X: number, Y: number, Z: number? } | number[])[], t: number, options: { Closed: boolean?, Alpha: number? }?): number | Vector
+    function SampleSpline(points: (number | Vector | { X: number, Y: number, Z: number? } | number[])[], count: number, options: { Closed: boolean?, Alpha: number? }?): (number | Vector)[]
     function Quaternion(x: number?, y: number?, z: number?, w: number?): QuarkQuaternion
-    function QuaternionFromRotator(rotator: Rotator | { [string]: any } | number[]): QuarkQuaternion
-    function QuaternionFromAxisAngle(axis: Vector | { [string]: any } | number[], degrees: number): QuarkQuaternion
-    function QuaternionBetween(from: Vector | { [string]: any } | number[], to: Vector | { [string]: any } | number[]): QuarkQuaternion
+    function QuaternionFromRotator(rotator: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[]): QuarkQuaternion
+    function QuaternionFromAxisAngle(axis: Vector | { X: number, Y: number, Z: number? } | number[], degrees: number): QuarkQuaternion
+    function QuaternionBetween(from: Vector | { X: number, Y: number, Z: number? } | number[], to: Vector | { X: number, Y: number, Z: number? } | number[]): QuarkQuaternion
     function IsQuaternion(value: any): boolean
-    function RotateVector(vector: Vector | { [string]: any } | number[], rotation: Rotator | { [string]: any } | number[] | QuarkQuaternion): Vector
-    function UnrotateVector(vector: Vector | { [string]: any } | number[], rotation: Rotator | { [string]: any } | number[] | QuarkQuaternion): Vector
+    function RotateVector(vector: Vector | { X: number, Y: number, Z: number? } | number[], rotation: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[] | QuarkQuaternion): Vector
+    function UnrotateVector(vector: Vector | { X: number, Y: number, Z: number? } | number[], rotation: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[] | QuarkQuaternion): Vector
     --- @return forward
     --- @return right
     --- @return up
-    function GetDirections(rotation: Rotator | { [string]: any } | number[] | QuarkQuaternion): (Vector, Vector, Vector)
-    function LookAt(from: Vector | { [string]: any } | number[], to: Vector | { [string]: any } | number[]): Rotator
-    function SlerpRotator(from: Rotator | { [string]: any } | number[], to: Rotator | { [string]: any } | number[], t: number): Rotator
-    function CombineRotators(first: Rotator | { [string]: any } | number[], second: Rotator | { [string]: any } | number[]): Rotator
-    function NormalizeRotator(rotator: Rotator | { [string]: any } | number[]): Rotator
+    function GetDirections(rotation: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[] | QuarkQuaternion): (Vector, Vector, Vector)
+    function LookAt(from: Vector | { X: number, Y: number, Z: number? } | number[], to: Vector | { X: number, Y: number, Z: number? } | number[]): Rotator
+    function SlerpRotator(from: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[], to: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[], t: number): Rotator
+    function CombineRotators(first: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[], second: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[]): Rotator
+    function NormalizeRotator(rotator: Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[]): Rotator
     function Sum(values: number[] | QuarkBufferView): number
     function Mean(values: number[] | QuarkBufferView): number?
     function Median(values: number[] | QuarkBufferView): number?
@@ -598,70 +605,81 @@ end
 
 --- A 2D or 3D shape.
 @side(server)
-declare interface QuarkShape
-    method Contains(point: Vector | { [string]: any } | number[]): boolean
-    method RandomPoint(generator: QuarkRandomGenerator?): Vector | Vector2D
-    method RandomPoints(count: number, generator: QuarkRandomGenerator?): (Vector | Vector2D)[]
-    method ClosestPoint(point: Vector | { [string]: any } | number[]): Vector | Vector2D
-    method Distance(point: Vector | { [string]: any } | number[]): number
+declare class QuarkShape
+    function Contains(point: Vector | { X: number, Y: number, Z: number? } | number[]): boolean
+    function RandomPoint(generator: QuarkRandomGenerator?): Vector | Vector2D
+    function RandomPoints(count: number, generator: QuarkRandomGenerator?): (Vector | Vector2D)[]
+    function ClosestPoint(point: Vector | { X: number, Y: number, Z: number? } | number[]): Vector | Vector2D
+    function Distance(point: Vector | { X: number, Y: number, Z: number? } | number[]): number
     --- @return minimum
     --- @return maximum
-    method GetBounds(): (Vector | Vector2D, Vector | Vector2D)
-    method GetCenter(): Vector | Vector2D
-    method GetArea(): number?
-    method GetVolume(): number?
-    method GetType(): string
-    method Is3D(): boolean
+    function GetBounds(): (Vector | Vector2D, Vector | Vector2D)
+    function GetCenter(): Vector | Vector2D
+    function GetArea(): number?
+    function GetVolume(): number?
+    function GetType(): string
+    function Is3D(): boolean
 end
 
 @side(server)
 declare interface QuarkGeometryModule
-    function Circle(center: Vector | { [string]: any } | number[], radius: number): QuarkShape
-    function Rectangle(center: Vector | { [string]: any } | number[], extent: Vector | { [string]: any } | number[], angle: number?): QuarkShape
-    function Polygon(points: (Vector | { [string]: any } | number[])[]): QuarkShape
-    function Sphere(center: Vector | { [string]: any } | number[], radius: number): QuarkShape
-    function Box(center: Vector | { [string]: any } | number[], extent: Vector | { [string]: any } | number[], rotation: (Rotator | { [string]: any } | number[] | QuarkQuaternion)?): QuarkShape
-    function Cylinder(center: Vector | { [string]: any } | number[], radius: number, height: number): QuarkShape
-    function Capsule(start: Vector | { [string]: any } | number[], finish: Vector | { [string]: any } | number[], radius: number): QuarkShape
-    function Prism(points: (Vector | { [string]: any } | number[])[], minimum: number, maximum: number): QuarkShape
+    function Circle(center: Vector | { X: number, Y: number, Z: number? } | number[], radius: number): QuarkShape
+    function Rectangle(center: Vector | { X: number, Y: number, Z: number? } | number[], extent: Vector | { X: number, Y: number, Z: number? } | number[], angle: number?): QuarkShape
+    function Polygon(points: (Vector | { X: number, Y: number, Z: number? } | number[])[]): QuarkShape
+    function Sphere(center: Vector | { X: number, Y: number, Z: number? } | number[], radius: number): QuarkShape
+    function Box(center: Vector | { X: number, Y: number, Z: number? } | number[], extent: Vector | { X: number, Y: number, Z: number? } | number[], rotation: (Rotator | { Pitch: number, Yaw: number, Roll: number? } | number[] | QuarkQuaternion)?): QuarkShape
+    function Cylinder(center: Vector | { X: number, Y: number, Z: number? } | number[], radius: number, height: number): QuarkShape
+    function Capsule(start: Vector | { X: number, Y: number, Z: number? } | number[], finish: Vector | { X: number, Y: number, Z: number? } | number[], radius: number): QuarkShape
+    function Prism(points: (Vector | { X: number, Y: number, Z: number? } | number[])[], minimum: number, maximum: number): QuarkShape
     function Union(shapes: QuarkShape[]): QuarkShape
     function IsShape(value: any): boolean
-    function PointInPolygon(point: Vector | { [string]: any } | number[], polygon: (Vector | { [string]: any } | number[])[]): boolean
-    function PolygonArea(polygon: (Vector | { [string]: any } | number[])[], signed: boolean?): number
-    function PolygonCentroid(polygon: (Vector | { [string]: any } | number[])[]): Vector2D
-    function ConvexHull(points: (Vector | { [string]: any } | number[])[]): Vector2D[]
-    function SegmentIntersection(a1: Vector | { [string]: any } | number[], a2: Vector | { [string]: any } | number[], b1: Vector | { [string]: any } | number[], b2: Vector | { [string]: any } | number[]): Vector2D?
-    function ClosestPointOnSegment(point: Vector | { [string]: any } | number[], start: Vector | { [string]: any } | number[], finish: Vector | { [string]: any } | number[]): Vector
-    function DistanceToSegment(point: Vector | { [string]: any } | number[], start: Vector | { [string]: any } | number[], finish: Vector | { [string]: any } | number[]): number
-    function Triangulate(polygon: (Vector | { [string]: any } | number[])[]): number[][]
-    function Delaunay(points: (Vector | { [string]: any } | number[])[]): number[][]
-    function SimplifyPath(points: (Vector | { [string]: any } | number[])[], tolerance: number): Vector[]
+    function PointInPolygon(point: Vector | { X: number, Y: number, Z: number? } | number[], polygon: (Vector | { X: number, Y: number, Z: number? } | number[])[]): boolean
+    function PolygonArea(polygon: (Vector | { X: number, Y: number, Z: number? } | number[])[], signed: boolean?): number
+    function PolygonCentroid(polygon: (Vector | { X: number, Y: number, Z: number? } | number[])[]): Vector2D
+    function ConvexHull(points: (Vector | { X: number, Y: number, Z: number? } | number[])[]): Vector2D[]
+    function SegmentIntersection(a1: Vector | { X: number, Y: number, Z: number? } | number[], a2: Vector | { X: number, Y: number, Z: number? } | number[], b1: Vector | { X: number, Y: number, Z: number? } | number[], b2: Vector | { X: number, Y: number, Z: number? } | number[]): Vector2D?
+    function ClosestPointOnSegment(point: Vector | { X: number, Y: number, Z: number? } | number[], start: Vector | { X: number, Y: number, Z: number? } | number[], finish: Vector | { X: number, Y: number, Z: number? } | number[]): Vector
+    function DistanceToSegment(point: Vector | { X: number, Y: number, Z: number? } | number[], start: Vector | { X: number, Y: number, Z: number? } | number[], finish: Vector | { X: number, Y: number, Z: number? } | number[]): number
+    function Triangulate(polygon: (Vector | { X: number, Y: number, Z: number? } | number[])[]): number[][]
+    function Delaunay(points: (Vector | { X: number, Y: number, Z: number? } | number[])[]): number[][]
+    function SimplifyPath(points: (Vector | { X: number, Y: number, Z: number? } | number[])[], tolerance: number): Vector[]
     --- @return minimum
     --- @return maximum
-    function BoundingBox(points: (Vector | { [string]: any } | number[])[], options: { [string]: any }?): (Vector?, Vector?)
+    function BoundingBox(points: (Vector | { X: number, Y: number, Z: number? } | number[])[], options: { Padding: number? }?): (Vector?, Vector?)
 end
 
 --- Integer of any size, supports arithmetic operators.
 @side(server)
-declare interface QuarkBigInt
-    method ToString(base: number?): string
-    method ToNumber(): number
-    method FitsInteger(): boolean
-    method Abs(): QuarkBigInt
-    method Pow(exponent: number): QuarkBigInt
-    method ModPow(exponent: number | string | QuarkBigInt, modulus: number | string | QuarkBigInt): QuarkBigInt
-    method Gcd(other: number | string | QuarkBigInt): QuarkBigInt
-    method Lcm(other: number | string | QuarkBigInt): QuarkBigInt
-    method Sqrt(): QuarkBigInt
+declare class QuarkBigInt
+    operator +(other: QuarkBigInt | number | string): QuarkBigInt
+    operator -(other: QuarkBigInt | number | string): QuarkBigInt
+    operator *(other: QuarkBigInt | number | string): QuarkBigInt
+    operator /(other: QuarkBigInt | number | string): QuarkBigInt
+    operator //(other: QuarkBigInt | number | string): QuarkBigInt
+    operator %(other: QuarkBigInt | number | string): QuarkBigInt
+    operator ^(other: QuarkBigInt | number | string): QuarkBigInt
+    operator -(): QuarkBigInt
+    operator ..(other: any): string
+    operator <(other: QuarkBigInt | number | string): boolean
+    operator <=(other: QuarkBigInt | number | string): boolean
+    function ToString(base: number?): string
+    function ToNumber(): number
+    function FitsInteger(): boolean
+    function Abs(): QuarkBigInt
+    function Pow(exponent: number): QuarkBigInt
+    function ModPow(exponent: number | string | QuarkBigInt, modulus: number | string | QuarkBigInt): QuarkBigInt
+    function Gcd(other: number | string | QuarkBigInt): QuarkBigInt
+    function Lcm(other: number | string | QuarkBigInt): QuarkBigInt
+    function Sqrt(): QuarkBigInt
     --- @return quotient
     --- @return remainder
-    method DivMod(other: number | string | QuarkBigInt): (QuarkBigInt, QuarkBigInt)
-    method GetSign(): number
-    method IsZero(): boolean
-    method IsEven(): boolean
-    method GetBits(): number
-    method Equals(other: any): boolean
-    method Compare(other: number | string | QuarkBigInt): number
+    function DivMod(other: number | string | QuarkBigInt): (QuarkBigInt, QuarkBigInt)
+    function GetSign(): number
+    function IsZero(): boolean
+    function IsEven(): boolean
+    function GetBits(): number
+    function Equals(other: any): boolean
+    function Compare(other: number | string | QuarkBigInt): number
 end
 
 @side(server)
@@ -675,23 +693,32 @@ end
 
 --- Exact decimal number, supports arithmetic operators.
 @side(server)
-declare interface QuarkDecimal
-    method ToString(): string
-    method ToNumber(): number
-    method Format(options: { [string]: any }?): string
-    method Round(decimals: number?, mode: string?): QuarkDecimal
-    method Truncate(decimals: number?): QuarkDecimal
-    method Floor(): QuarkDecimal
-    method Ceil(): QuarkDecimal
-    method Abs(): QuarkDecimal
-    method Sqrt(): QuarkDecimal
-    method Pow(exponent: number): QuarkDecimal
-    method Split(parts: number): QuarkDecimal[]
-    method GetScale(): number
-    method IsZero(): boolean
-    method IsNegative(): boolean
-    method Equals(other: any): boolean
-    method Compare(other: number | string | QuarkDecimal): number
+declare class QuarkDecimal
+    operator +(other: QuarkDecimal | number | string): QuarkDecimal
+    operator -(other: QuarkDecimal | number | string): QuarkDecimal
+    operator *(other: QuarkDecimal | number | string): QuarkDecimal
+    operator /(other: QuarkDecimal | number | string): QuarkDecimal
+    operator %(other: QuarkDecimal | number | string): QuarkDecimal
+    operator -(): QuarkDecimal
+    operator ..(other: any): string
+    operator <(other: QuarkDecimal | number | string): boolean
+    operator <=(other: QuarkDecimal | number | string): boolean
+    function ToString(): string
+    function ToNumber(): number
+    function Format(options: { Decimals: number?, Rounding: string?, Separator: string?, Point: string? }?): string
+    function Round(decimals: number?, mode: string?): QuarkDecimal
+    function Truncate(decimals: number?): QuarkDecimal
+    function Floor(): QuarkDecimal
+    function Ceil(): QuarkDecimal
+    function Abs(): QuarkDecimal
+    function Sqrt(): QuarkDecimal
+    function Pow(exponent: number): QuarkDecimal
+    function Split(parts: number): QuarkDecimal[]
+    function GetScale(): number
+    function IsZero(): boolean
+    function IsNegative(): boolean
+    function Equals(other: any): boolean
+    function Compare(other: number | string | QuarkDecimal): number
 end
 
 @side(server)
@@ -705,59 +732,59 @@ end
 
 --- Events: Connect(session_present), Message(topic, payload, details), Disconnect(reason), Error(message), Close(reason).
 @side(server)
-declare interface QuarkMQTTClient extends QuarkEmitter
-    method Listen(topic: string, qos: number?): void
-    method Unlisten(topic: string): void
+declare class QuarkMQTTClient extends QuarkEmitter
+    function Listen(topic: string, qos: number?): void
+    function Unlisten(topic: string): void
     --- @return message
-    method Publish(topic: string, payload: string | QuarkBuffer, options: { [string]: any }?): (boolean?, string?)
-    method GetTopics(): string[]
-    method GetClientID(): string
-    method GetState(): string
-    method IsOpen(): boolean
-    method Close(): void
+    function Publish(topic: string, payload: string | QuarkBuffer, options: { QoS: number?, Retain: boolean? }?): (boolean?, string?)
+    function GetTopics(): string[]
+    function GetClientID(): string
+    function GetState(): string
+    function IsOpen(): boolean
+    function Close(): void
 end
 
 @side(server)
 declare interface QuarkMQTTModule
-    function Connect(url: string, options: { [string]: any }?): QuarkMQTTClient
+    function Connect(url: string, options: ({ ClientID: string?, Username: string?, Password: string?, KeepAlive: (number | string)?, CleanSession: boolean?, Will: ({ Topic: string, Payload: (string | QuarkBuffer)?, QoS: number?, Retain: boolean? })?, MaxPacketSize: number?, TLS: boolean?, CA: string?, Certificate: string?, PrivateKey: string? })?): QuarkMQTTClient
     function TopicMatches(filter: string, topic: string): boolean
 end
 
 --- A received NATS message.
 @side(server)
-declare interface QuarkNATSMessage
+declare class QuarkNATSMessage
     Subject: string
     Payload: string
     Reply: string?
     Headers: { [string]: string }?
-    method Respond(payload: string | QuarkBuffer, headers: { [string]: string }?): boolean
+    function Respond(payload: string | QuarkBuffer, headers: { [string]: string }?): boolean
 end
 
 --- Events: Message(message) when no handler was given.
 @side(server)
-declare interface QuarkNATSSubscription extends QuarkEmitter
-    method Unlisten(): void
-    method GetSubject(): string
-    method GetQueue(): string?
+declare class QuarkNATSSubscription extends QuarkEmitter
+    function Unlisten(): void
+    function GetSubject(): string
+    function GetQueue(): string?
 end
 
 --- Events: Connect, Disconnect(reason), Error(message), Close(reason).
 @side(server)
-declare interface QuarkNATSClient extends QuarkEmitter
-    method Publish(subject: string, payload: string | QuarkBuffer, options: { [string]: any }?): boolean
-    method Listen(subject: string, handler: nil | ((QuarkNATSMessage) -> void), options: { [string]: any }?): QuarkNATSSubscription
+declare class QuarkNATSClient extends QuarkEmitter
+    function Publish(subject: string, payload: string | QuarkBuffer, options: { Reply: string?, Headers: { [string]: string }? }?): boolean
+    function Listen(subject: string, handler: ((QuarkNATSMessage) -> void)?, options: { Queue: string? }?): QuarkNATSSubscription
     --- @return message
-    method Request(subject: string, payload: string | QuarkBuffer, options: { [string]: any }?, callback: function?): (QuarkNATSMessage?, string?)
+    function Request(subject: string, payload: string | QuarkBuffer, options: ({ Timeout: (number | string)?, Headers: { [string]: string }? })?, callback: function?): (QuarkNATSMessage?, string?)
     --- @return message
-    method Flush(callback: function?): (boolean?, string?)
-    method GetState(): string
-    method IsOpen(): boolean
-    method Close(): void
+    function Flush(callback: function?): (boolean?, string?)
+    function GetState(): string
+    function IsOpen(): boolean
+    function Close(): void
 end
 
 @side(server)
 declare interface QuarkNATSModule
-    function Connect(urls: (string | string[])?, options: { [string]: any }?): QuarkNATSClient
+    function Connect(urls: (string | string[])?, options: ({ Name: string?, Username: string?, Password: string?, Token: string?, Timeout: (number | string)?, TLS: boolean?, CA: string?, Certificate: string?, PrivateKey: string? })?): QuarkNATSClient
 end
 
 --- Client certificate of a connection with mutual TLS.
@@ -774,16 +801,16 @@ end
 
 --- Common methods of sockets and servers.
 @side(server)
-declare interface QuarkConnection extends QuarkEmitter
-    method GetState(): string
-    method IsOpen(): boolean
+declare class QuarkConnection extends QuarkEmitter
+    function GetState(): string
+    function IsOpen(): boolean
     --- @return ip
     --- @return port
-    method GetLocalAddress(): (string?, number?)
+    function GetLocalAddress(): (string?, number?)
     --- @return ip
     --- @return port
-    method GetRemoteAddress(): (string?, number?)
-    method GetPeerCertificate(): QuarkPeerCertificate?
+    function GetRemoteAddress(): (string?, number?)
+    function GetPeerCertificate(): QuarkPeerCertificate?
 end
 
 @side(server)
@@ -807,13 +834,13 @@ declare interface QuarkNetModule
     function CreateSelfSignedCertificate(names: string | string[]): (string, string)
     --- @return certificate
     --- @return private_key
-    function CreateCertificateAuthority(name: string?, options: { [string]: any }?): (string, string)
+    function CreateCertificateAuthority(name: string?, options: { Days: number? }?): (string, string)
     --- @return certificate
     --- @return private_key
-    function CreateCertificate(names: string | string[], options: { [string]: any }?): (string, string)
+    function CreateCertificate(names: string | string[], options: { CA: { Certificate: string, PrivateKey: string }?, Client: boolean?, Days: number? }?): (string, string)
     --- Opens a MaxMind database.
     --- @return message
-    function GeoIP(path: string, options: { [string]: any }?, callback: function?): (QuarkGeoIP?, string?)
+    function GeoIP(path: string, options: { Language: string? }?, callback: function?): (QuarkGeoIP?, string?)
 end
 
 @side(server)
@@ -840,77 +867,77 @@ end
 
 --- A MaxMind database.
 @side(server)
-declare interface QuarkGeoIP
+declare class QuarkGeoIP
     --- @return message
-    method Lookup(ip: string): (QuarkGeoIPResult?, string?)
-    method GetCountry(ip: string): string?
+    function Lookup(ip: string): (QuarkGeoIPResult?, string?)
+    function GetCountry(ip: string): string?
     --- @return message
-    method LookupRaw(ip: string): ({ [any]: any }?, string?)
-    method GetMetadata(): { DatabaseType: string, BuildEpoch: number, IpVersion: number, NodeCount: number, Languages: string[] }
+    function LookupRaw(ip: string): ({ [any]: any }?, string?)
+    function GetMetadata(): { DatabaseType: string, BuildEpoch: number, IpVersion: number, NodeCount: number, Languages: string[] }
 end
 
 --- Events: Connect, Data(data), Error(message), Close(reason).
 @side(server)
-declare interface QuarkTCPSocket extends QuarkConnection
-    method Send(data: string | QuarkBuffer): boolean
-    method Close(): void
+declare class QuarkTCPSocket extends QuarkConnection
+    function Send(data: string | QuarkBuffer): boolean
+    function Close(): void
 end
 
 --- Events: Connection(socket), Error(message), Close(reason).
 @side(server)
-declare interface QuarkTCPServer extends QuarkConnection
-    method GetPort(): number
-    method GetClients(): QuarkTCPSocket[]
-    method Close(): void
+declare class QuarkTCPServer extends QuarkConnection
+    function GetPort(): number
+    function GetClients(): QuarkTCPSocket[]
+    function Close(): void
 end
 
 @side(server)
 declare interface QuarkTCPModule
-    function Connect(host: string, port: number, options: { [string]: any }?): QuarkTCPSocket
+    function Connect(host: string, port: number, options: ({ Framing: string?, MaxFrameSize: number?, Timeout: (number | string)?, TLS: boolean?, ServerName: string?, CA: string?, Certificate: string?, PrivateKey: string? })?): QuarkTCPSocket
     --- @return message
-    function Listen(port: number, options: { [string]: any }?): (QuarkTCPServer?, string?)
+    function Listen(port: number, options: { Framing: string?, MaxFrameSize: number?, Host: string?, MaxConnections: number?, TLS: { Certificate: string, PrivateKey: string, ClientCA: string?, RequireClientCertificate: boolean? }? }?): (QuarkTCPServer?, string?)
 end
 
 --- Events: Message(data, ip, port), Error(message), Close(reason).
 @side(server)
-declare interface QuarkUDPSocket extends QuarkConnection
-    method Send(data: string | QuarkBuffer, host: string, port: number): boolean
-    method Close(): void
+declare class QuarkUDPSocket extends QuarkConnection
+    function Send(data: string | QuarkBuffer, host: string, port: number): boolean
+    function Close(): void
 end
 
 @side(server)
 declare interface QuarkUDPModule
     --- @return message
-    function Bind(port: number?, options: { [string]: any }?): (QuarkUDPSocket?, string?)
+    function Bind(port: number?, options: { Host: string? }?): (QuarkUDPSocket?, string?)
 end
 
 --- Events: Connect, Message(data, binary), Disconnect(code, reason), Reconnect(attempt, delay), Error(message), Close(code, reason).
 @side(server)
-declare interface QuarkWebSocket extends QuarkConnection
-    method Send(text: string): boolean
-    method SendBinary(data: string | QuarkBuffer): boolean
-    method Close(code: number?, reason: string?): void
+declare class QuarkWebSocket extends QuarkConnection
+    function Send(text: string): boolean
+    function SendBinary(data: string | QuarkBuffer): boolean
+    function Close(code: number?, reason: string?): void
 end
 
 --- Events: Connection(socket, request), Error(message), Close(reason).
 @side(server)
-declare interface QuarkWebSocketServer extends QuarkConnection
-    method Broadcast(data: string | QuarkBuffer, binary: boolean?): number
-    method GetPort(): number
-    method GetClients(): QuarkWebSocket[]
-    method Close(): void
+declare class QuarkWebSocketServer extends QuarkConnection
+    function Broadcast(data: string | QuarkBuffer, binary: boolean?): number
+    function GetPort(): number
+    function GetClients(): QuarkWebSocket[]
+    function Close(): void
 end
 
 @side(server)
 declare interface QuarkWebSocketModule
-    function Connect(url: string, options: { [string]: any }?): QuarkWebSocket
+    function Connect(url: string, options: ({ Headers: { [string]: string }?, Timeout: (number | string)?, CA: string?, Certificate: string?, PrivateKey: string?, MaxMessageSize: number?, Reconnect: (boolean | { InitialDelay: (number | string)?, MaxDelay: (number | string)?, Multiplier: number?, MaxAttempts: number? })? })?): QuarkWebSocket
     --- @return message
-    function Listen(port: number, options: { [string]: any }?): (QuarkWebSocketServer?, string?)
+    function Listen(port: number, options: { Host: string?, Path: string?, MaxConnections: number?, MaxMessageSize: number?, TLS: { Certificate: string, PrivateKey: string, ClientCA: string?, RequireClientCertificate: boolean? }? }?): (QuarkWebSocketServer?, string?)
 end
 
 --- A request received by an HTTP server.
 @side(server)
-declare interface QuarkHTTPRequest
+declare class QuarkHTTPRequest
     Method: string
     Path: string
     Params: { [string]: string }
@@ -924,174 +951,174 @@ declare interface QuarkHTTPRequest
     Version: string
     ClientCertificate: QuarkPeerCertificate?
     --- @return message
-    method Json(): (any, string?)
+    function Json(): (any, string?)
     --- @return fields
     --- @return files_or_message
-    method Form(): ({ [any]: any }?, { [any]: any } | string?)
-    method GetHeader(name: string): string?
+    function Form(): ({ [any]: any }?, { [any]: any } | string?)
+    function GetHeader(name: string): string?
 end
 
 --- Response of an HTTP handler.
 @side(server)
-declare interface QuarkHTTPResponse
-    method Status(code: number): QuarkHTTPResponse
-    method Header(name: string, value: string): QuarkHTTPResponse
-    method Json(value: any, status: number?): boolean
-    method Text(text: string, status: number?): boolean
-    method Html(html: string, status: number?): boolean
-    method Send(body: (string | QuarkBuffer)?, content_type: string?, status: number?): boolean
-    method Redirect(location: string, status: number?): boolean
-    method SendFile(path: string, options: { [string]: any }?): boolean
-    method Cookie(name: string, value: string, options: { [string]: any }?): QuarkHTTPResponse
-    method ClearCookie(name: string, options: { [string]: any }?): QuarkHTTPResponse
-    method Compress(enabled: boolean?): QuarkHTTPResponse
-    method IsSent(): boolean
-    method GetStatus(): number
+declare class QuarkHTTPResponse
+    function Status(code: number): QuarkHTTPResponse
+    function Header(name: string, value: string): QuarkHTTPResponse
+    function Json(value: any, status: number?): boolean
+    function Text(text: string, status: number?): boolean
+    function Html(html: string, status: number?): boolean
+    function Send(body: (string | QuarkBuffer)?, content_type: string?, status: number?): boolean
+    function Redirect(location: string, status: number?): boolean
+    function SendFile(path: string, options: { MaxAge: number?, ContentType: string?, MaxFileSize: number? }?): boolean
+    function Cookie(name: string, value: string, options: { MaxAge: number?, Path: string?, Domain: string?, Secure: boolean?, HttpOnly: boolean?, SameSite: string? }?): QuarkHTTPResponse
+    function ClearCookie(name: string, options: { Path: string?, Domain: string? }?): QuarkHTTPResponse
+    function Compress(enabled: boolean?): QuarkHTTPResponse
+    function IsSent(): boolean
+    function GetStatus(): number
 end
 
 --- Events: Error(message), Close(reason).
 @side(server)
-declare interface QuarkHTTPServer extends QuarkConnection
-    method Get(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
-    method Post(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
-    method Put(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
-    method Patch(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
-    method Delete(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
-    method Options(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
-    method All(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
-    method Route(method: string, pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
-    method WebSocket(pattern: string, handler: (QuarkWebSocket, QuarkHTTPRequest) -> void): QuarkHTTPServer
-    method Static(prefix: string, directory: string, options: { [string]: any }?): QuarkHTTPServer
-    method Use(middleware: (QuarkHTTPRequest, QuarkHTTPResponse, () -> void) -> void): QuarkHTTPServer
-    method GetPort(): number
-    method Close(): void
+declare class QuarkHTTPServer extends QuarkConnection
+    function Get(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
+    function Post(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
+    function Put(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
+    function Patch(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
+    function Delete(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
+    function Options(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
+    function All(pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
+    function Route(method: string, pattern: string, handler: (QuarkHTTPRequest, QuarkHTTPResponse) -> void): QuarkHTTPServer
+    function WebSocket(pattern: string, handler: (QuarkWebSocket, QuarkHTTPRequest) -> void): QuarkHTTPServer
+    function Static(prefix: string, directory: string, options: { Index: string?, MaxAge: number? }?): QuarkHTTPServer
+    function Use(middleware: (QuarkHTTPRequest, QuarkHTTPResponse, () -> void) -> void): QuarkHTTPServer
+    function GetPort(): number
+    function Close(): void
 end
 
 --- Response of an HTTP request.
 @side(server)
-declare interface QuarkHTTPClientResponse
+declare class QuarkHTTPClientResponse
     Status: number
     Version: string
     Headers: { [string]: string }
     Body: string
     URL: string
     --- @return message
-    method Json(): (any, string?)
-    method IsSuccess(): boolean
+    function Json(): (any, string?)
+    function IsSuccess(): boolean
 end
 
 --- Events: Response(status, headers, url), Data(chunk), End, Error(message), Close(reason).
 @side(server)
-declare interface QuarkHTTPStream extends QuarkConnection
-    method Close(): void
+declare class QuarkHTTPStream extends QuarkConnection
+    function Close(): void
 end
 
 @side(server)
 declare interface QuarkHTTPModule
     --- @return message
-    function Listen(port: number, options: { [string]: any }?): (QuarkHTTPServer?, string?)
+    function Listen(port: number, options: ({ Host: string?, MaxBodySize: number?, Timeout: (number | string)?, MaxConnections: number?, MaxMessageSize: number?, TLS: { Certificate: string, PrivateKey: string, ClientCA: string?, RequireClientCertificate: boolean? }?, Compression: (boolean | { Encodings: string[]?, MinSize: number?, Level: number? })?, HTTP2: boolean? })?): (QuarkHTTPServer?, string?)
     --- CORS middleware for HTTPServer:Use.
-    function Cors(options: { [string]: any }?): function
+    function Cors(options: ({ Origin: (string | string[])?, Methods: string?, Headers: string?, Credentials: boolean?, MaxAge: number? })?): function
     --- @return message
-    function Request(options: { [string]: any }, callback: function?): (QuarkHTTPClientResponse?, string?)
+    function Request(options: { URL: string?, Method: string?, Headers: { [string]: string }?, Query: { [any]: any }?, Body: (string | QuarkBuffer)?, Json: any, Timeout: (number | string)?, MaxBodySize: number?, FollowRedirects: boolean?, MaxRedirects: number?, CA: string?, Certificate: string?, PrivateKey: string?, Decompress: boolean?, HTTP2: boolean? }, callback: function?): (QuarkHTTPClientResponse?, string?)
     --- @return message
-    function Get(url: string, options: { [string]: any }?, callback: function?): (QuarkHTTPClientResponse?, string?)
+    function Get(url: string, options: ({ URL: string?, Method: string?, Headers: { [string]: string }?, Query: { [any]: any }?, Body: (string | QuarkBuffer)?, Json: any, Timeout: (number | string)?, MaxBodySize: number?, FollowRedirects: boolean?, MaxRedirects: number?, CA: string?, Certificate: string?, PrivateKey: string?, Decompress: boolean?, HTTP2: boolean? })?, callback: function?): (QuarkHTTPClientResponse?, string?)
     --- @return message
-    function Post(url: string, body: any, options: { [string]: any }?, callback: function?): (QuarkHTTPClientResponse?, string?)
-    function Stream(options: { [string]: any }): QuarkHTTPStream
+    function Post(url: string, body: any, options: ({ URL: string?, Method: string?, Headers: { [string]: string }?, Query: { [any]: any }?, Body: (string | QuarkBuffer)?, Json: any, Timeout: (number | string)?, MaxBodySize: number?, FollowRedirects: boolean?, MaxRedirects: number?, CA: string?, Certificate: string?, PrivateKey: string?, Decompress: boolean?, HTTP2: boolean? })?, callback: function?): (QuarkHTTPClientResponse?, string?)
+    function Stream(options: { URL: string?, Method: string?, Headers: { [string]: string }?, Query: { [any]: any }?, Body: (string | QuarkBuffer)?, Json: any, Timeout: (number | string)?, MaxBodySize: number?, FollowRedirects: boolean?, MaxRedirects: number?, CA: string?, Certificate: string?, PrivateKey: string?, Decompress: boolean?, HTTP2: boolean? }): QuarkHTTPStream
 end
 
 --- Generated tile map.
 @side(server)
-declare interface QuarkMap
+declare class QuarkMap
     --- @return width
     --- @return height
-    method GetSize(): (number, number)
-    method GetTile(x: number, y: number): number
-    method SetTile(x: number, y: number, tile: number): void
-    method IsWalkable(x: number, y: number): boolean
-    method GetRooms(): { X: number, Y: number, Width: number, Height: number, Center: { X: number, Y: number } }[]
-    method GetFloorCells(): { X: number, Y: number }[]
-    method GetTiles(): QuarkBuffer
-    method ToCosts(): number[]
-    method ToText(): string
+    function GetSize(): (number, number)
+    function GetTile(x: number, y: number): number
+    function SetTile(x: number, y: number, tile: number): void
+    function IsWalkable(x: number, y: number): boolean
+    function GetRooms(): { X: number, Y: number, Width: number, Height: number, Center: { X: number, Y: number } }[]
+    function GetFloorCells(): { X: number, Y: number }[]
+    function GetTiles(): QuarkBuffer
+    function ToCosts(): number[]
+    function ToText(): string
 end
 
 @side(server)
 declare interface QuarkProcGenModule
     Tile: { Wall: number, Floor: number, Corridor: number, Door: number }
-    function Caves(width: number, height: number, options: { [string]: any }?): QuarkMap
-    function Dungeon(width: number, height: number, options: { [string]: any }?): QuarkMap
+    function Caves(width: number, height: number, options: { FillChance: number?, Steps: number?, BirthLimit: number?, DeathLimit: number?, KeepLargest: boolean?, Generator: QuarkRandomGenerator? }?): QuarkMap
+    function Dungeon(width: number, height: number, options: { Attempts: number?, MinRoomSize: number?, MaxRoomSize: number?, Loops: number?, Doors: boolean?, Generator: QuarkRandomGenerator? }?): QuarkMap
     function Heightmap(width: number, height: number, options: { [any]: any }?, callback: function?): QuarkBuffer
 end
 
 --- Seeded generator, the same seed gives the same sequence everywhere.
 @side(server)
-declare interface QuarkRandomGenerator
+declare class QuarkRandomGenerator
     --- Integer from minimum to maximum, both inclusive. With one argument from 1 to it.
-    method Int(minimum_or_maximum: number, maximum: number?): number
+    function Int(minimum_or_maximum: number, maximum: number?): number
     --- Number from 0 to 1, 0 to maximum or minimum to maximum, the upper end is excluded.
-    method Float(minimum_or_maximum: number?, maximum: number?): number
-    method Bool(probability: number?): boolean
+    function Float(minimum_or_maximum: number?, maximum: number?): number
+    function Bool(probability: number?): boolean
     --- @return index
-    method Pick(list: any[]): (any, number?)
+    function Pick(list: any[]): (any, number?)
     --- Shuffles in place and returns the list.
-    method Shuffle(list: any[]): any[]
+    function Shuffle(list: any[]): any[]
     --- Distinct elements without replacement.
-    method Sample(list: any[], count: number): any[]
+    function Sample(list: any[], count: number): any[]
     --- One item picked by weight.
-    method Weighted(weights: { [any]: any }): any
-    method Normal(mean: number?, deviation: number?): number
-    method Exponential(rate: number?): number
-    method Poisson(mean: number): number
-    method Triangular(minimum: number, maximum: number, mode: number?): number
+    function Weighted(weights: { [any]: any }): any
+    function Normal(mean: number?, deviation: number?): number
+    function Exponential(rate: number?): number
+    function Poisson(mean: number): number
+    function Triangular(minimum: number, maximum: number, mode: number?): number
     --- @return x
     --- @return y
-    method InsideCircle(radius: number?): (number, number)
-    --- @return x
-    --- @return y
-    --- @return z
-    method InsideSphere(radius: number?): (number, number, number)
+    function InsideCircle(radius: number?): (number, number)
     --- @return x
     --- @return y
     --- @return z
-    method OnSphere(radius: number?): (number, number, number)
+    function InsideSphere(radius: number?): (number, number, number)
+    --- @return x
+    --- @return y
+    --- @return z
+    function OnSphere(radius: number?): (number, number, number)
     --- Dice notation like "2d6+3" or "4d6kh3".
     --- @return total
     --- @return rolls
-    method Roll(notation: string): (number, number[])
-    method GetSeed(): number
-    method GetState(): string
-    method SetState(state: string): void
-    method Clone(): QuarkRandomGenerator
+    function Roll(notation: string): (number, number[])
+    function GetSeed(): number
+    function GetState(): string
+    function SetState(state: string): void
+    function Clone(): QuarkRandomGenerator
 end
 
 @side(server)
-declare interface QuarkWeightedPicker
-    method Pick(generator: QuarkRandomGenerator?): any
-    method PickMany(count: number, generator: QuarkRandomGenerator?): any[]
-    method GetProbability(item: any): number
-    method GetItems(): { Item: any, Weight: number }[]
-    method GetCount(): number
-    method GetTotalWeight(): number
+declare class QuarkWeightedPicker
+    function Pick(generator: QuarkRandomGenerator?): any
+    function PickMany(count: number, generator: QuarkRandomGenerator?): any[]
+    function GetProbability(item: any): number
+    function GetItems(): { Item: any, Weight: number }[]
+    function GetCount(): number
+    function GetTotalWeight(): number
 end
 
 @side(server)
-declare interface QuarkLootTable
-    method Roll(options: { [string]: any }?): { Item: any, Count: number }[]
-    method GetChance(item: any): number
+declare class QuarkLootTable
+    function Roll(options: { Generator: QuarkRandomGenerator?, Merge: boolean?, Pity: { [any]: any }? }?): { Item: any, Count: number }[]
+    function GetChance(item: any): number
 end
 
 --- Coherent noise for terrain, distributions and movement.
 @side(server)
-declare interface QuarkNoise
-    method Get(x: number, y: number, z: number?): number
+declare class QuarkNoise
+    function Get(x: number, y: number, z: number?): number
     --- @return x
     --- @return y
     --- @return z
-    method Warp(x: number, y: number, z: number?): (number, number, number?)
+    function Warp(x: number, y: number, z: number?): (number, number, number?)
     --- Grid of little endian f32 values, row by row.
-    method Fill(width: number, height: number, options: { [string]: any }?, callback: function?): QuarkBuffer
+    function Fill(width: number, height: number, options: { X: number?, Y: number?, Z: number?, Step: number? }?, callback: function?): QuarkBuffer
 end
 
 @side(server)
@@ -1135,258 +1162,258 @@ declare interface QuarkRandomModule
     function HashSeed(text: string): number
     function IsGenerator(value: any): boolean
     function WeightedPicker(weights: { [any]: any }): QuarkWeightedPicker
-    function LootTable(definition: { [string]: any }): QuarkLootTable
-    function Noise(options: { [string]: any }?): QuarkNoise
-    function PoissonDisk(width: number, height: number, radius: number, options: { [string]: any }?): { X: number, Y: number }[]
+    function LootTable(definition: { Rolls: (number | number[])?, Entries: { [any]: any }[]?, Guaranteed: { [any]: any }[]?, Pity: { Item: any, After: number, Key: any }[]? }): QuarkLootTable
+    function Noise(options: ({ Seed: (number | string)?, Type: string?, Frequency: number?, Fractal: string?, Octaves: number?, Lacunarity: number?, Gain: number?, WeightedStrength: number?, PingPongStrength: number?, CellularDistance: string?, CellularReturn: string?, CellularJitter: number?, Warp: (boolean | { [any]: any })? })?): QuarkNoise
+    function PoissonDisk(width: number, height: number, radius: number, options: ({ X: number?, Y: number?, Filter: ((number, number) -> boolean)?, Limit: number?, Attempts: number?, Generator: QuarkRandomGenerator? })?): { X: number, Y: number }[]
 end
 
 --- Redis client, every method takes an optional callback as last argument.
 @side(server)
-declare interface QuarkRedisClient
+declare class QuarkRedisClient
     --- Any Redis command.
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method Command(name: string, ...: any): (any, string?)
+    function Command(name: string, ...: any): (any, string?)
     --- @return message
-    method Get(key: string | number | QuarkBuffer, callback: function?): (string?, string?)
+    function Get(key: string | number | QuarkBuffer, callback: function?): (string?, string?)
     --- @return message
-    method Set(key: string | number | QuarkBuffer, value: string | number | QuarkBuffer, options: { [string]: any }?, callback: function?): (boolean?, string?)
+    function Set(key: string | number | QuarkBuffer, value: string | number | QuarkBuffer, options: { EX: number?, PX: number?, NX: boolean?, XX: boolean?, KeepTTL: boolean? }?, callback: function?): (boolean?, string?)
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method Delete(key: string | number | QuarkBuffer, ...: any): (number?, string?)
+    function Delete(key: string | number | QuarkBuffer, ...: any): (number?, string?)
     --- @return message
-    method Exists(key: string | number | QuarkBuffer, callback: function?): (boolean?, string?)
+    function Exists(key: string | number | QuarkBuffer, callback: function?): (boolean?, string?)
     --- @return message
-    method Expire(key: string | number | QuarkBuffer, seconds: number, callback: function?): (boolean?, string?)
+    function Expire(key: string | number | QuarkBuffer, seconds: number, callback: function?): (boolean?, string?)
     --- @return message
-    method TTL(key: string | number | QuarkBuffer, callback: function?): (number?, string?)
+    function TTL(key: string | number | QuarkBuffer, callback: function?): (number?, string?)
     --- @return message
-    method Increment(key: string | number | QuarkBuffer, by: number?, callback: function?): (number?, string?)
+    function Increment(key: string | number | QuarkBuffer, by: number?, callback: function?): (number?, string?)
     --- @return message
-    method Decrement(key: string | number | QuarkBuffer, by: number?, callback: function?): (number?, string?)
+    function Decrement(key: string | number | QuarkBuffer, by: number?, callback: function?): (number?, string?)
     --- @return message
-    method HashGet(key: string | number | QuarkBuffer, field: string | number | QuarkBuffer, callback: function?): (string?, string?)
+    function HashGet(key: string | number | QuarkBuffer, field: string | number | QuarkBuffer, callback: function?): (string?, string?)
     --- @return message
-    method HashSet(key: string | number | QuarkBuffer, field_or_fields: string | number | QuarkBuffer | { [any]: any }, value: (string | number | QuarkBuffer)?, callback: function?): (number?, string?)
+    function HashSet(key: string | number | QuarkBuffer, field_or_fields: string | number | QuarkBuffer | { [any]: any }, value: (string | number | QuarkBuffer)?, callback: function?): (number?, string?)
     --- @return message
-    method HashGetAll(key: string | number | QuarkBuffer, callback: function?): ({ [string]: string }?, string?)
+    function HashGetAll(key: string | number | QuarkBuffer, callback: function?): ({ [string]: string }?, string?)
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method HashDelete(key: string | number | QuarkBuffer, field: string | number | QuarkBuffer, ...: any): (number?, string?)
+    function HashDelete(key: string | number | QuarkBuffer, field: string | number | QuarkBuffer, ...: any): (number?, string?)
     --- @return message
-    method HashExists(key: string | number | QuarkBuffer, field: string | number | QuarkBuffer, callback: function?): (boolean?, string?)
+    function HashExists(key: string | number | QuarkBuffer, field: string | number | QuarkBuffer, callback: function?): (boolean?, string?)
     --- @return message
-    method HashIncrement(key: string | number | QuarkBuffer, field: string | number | QuarkBuffer, by: number?, callback: function?): (number?, string?)
+    function HashIncrement(key: string | number | QuarkBuffer, field: string | number | QuarkBuffer, by: number?, callback: function?): (number?, string?)
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method ListPush(key: string | number | QuarkBuffer, ...: any): (number?, string?)
+    function ListPush(key: string | number | QuarkBuffer, ...: any): (number?, string?)
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method ListPushFront(key: string | number | QuarkBuffer, ...: any): (number?, string?)
+    function ListPushFront(key: string | number | QuarkBuffer, ...: any): (number?, string?)
     --- @return message
-    method ListPop(key: string | number | QuarkBuffer, callback: function?): (string?, string?)
+    function ListPop(key: string | number | QuarkBuffer, callback: function?): (string?, string?)
     --- @return message
-    method ListPopBack(key: string | number | QuarkBuffer, callback: function?): (string?, string?)
+    function ListPopBack(key: string | number | QuarkBuffer, callback: function?): (string?, string?)
     --- @return message
-    method ListRange(key: string | number | QuarkBuffer, start: number, stop: number, callback: function?): (string[]?, string?)
+    function ListRange(key: string | number | QuarkBuffer, start: number, stop: number, callback: function?): (string[]?, string?)
     --- @return message
-    method ListLength(key: string | number | QuarkBuffer, callback: function?): (number?, string?)
+    function ListLength(key: string | number | QuarkBuffer, callback: function?): (number?, string?)
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method SetAdd(key: string | number | QuarkBuffer, ...: any): (number?, string?)
+    function SetAdd(key: string | number | QuarkBuffer, ...: any): (number?, string?)
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method SetRemove(key: string | number | QuarkBuffer, ...: any): (number?, string?)
+    function SetRemove(key: string | number | QuarkBuffer, ...: any): (number?, string?)
     --- @return message
-    method SetMembers(key: string | number | QuarkBuffer, callback: function?): (string[]?, string?)
+    function SetMembers(key: string | number | QuarkBuffer, callback: function?): (string[]?, string?)
     --- @return message
-    method SetContains(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, callback: function?): (boolean?, string?)
+    function SetContains(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, callback: function?): (boolean?, string?)
     --- @return message
-    method SortedSetAdd(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, score: number, callback: function?): (number?, string?)
+    function SortedSetAdd(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, score: number, callback: function?): (number?, string?)
     --- @return message
-    method SortedSetIncrement(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, by: number, callback: function?): (number?, string?)
+    function SortedSetIncrement(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, by: number, callback: function?): (number?, string?)
     --- @return message
-    method SortedSetScore(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, callback: function?): (number?, string?)
+    function SortedSetScore(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, callback: function?): (number?, string?)
     --- @return message
-    method SortedSetRank(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, options: { [string]: any }?, callback: function?): (number?, string?)
+    function SortedSetRank(key: string | number | QuarkBuffer, member: string | number | QuarkBuffer, options: { Reverse: boolean? }?, callback: function?): (number?, string?)
     --- @return message
-    method SortedSetRange(key: string | number | QuarkBuffer, start: number, stop: number, options: { [string]: any }?, callback: function?): ({ [any]: any }?, string?)
+    function SortedSetRange(key: string | number | QuarkBuffer, start: number, stop: number, options: { Reverse: boolean?, WithScores: boolean? }?, callback: function?): ({ [any]: any }?, string?)
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method SortedSetRemove(key: string | number | QuarkBuffer, ...: any): (number?, string?)
+    function SortedSetRemove(key: string | number | QuarkBuffer, ...: any): (number?, string?)
     --- @return message
-    method SortedSetCount(key: string | number | QuarkBuffer, callback: function?): (number?, string?)
+    function SortedSetCount(key: string | number | QuarkBuffer, callback: function?): (number?, string?)
     --- @return message
-    method Publish(channel: string, message: string | number | QuarkBuffer, callback: function?): (number?, string?)
+    function Publish(channel: string, message: string | number | QuarkBuffer, callback: function?): (number?, string?)
     --- @return message
-    method Pipeline(commands: { [any]: any }[], options: { [string]: any }?, callback: function?): (any[]?, string?)
+    function Pipeline(commands: { [any]: any }[], options: { Atomic: boolean? }?, callback: function?): (any[]?, string?)
     --- @return message
-    method StreamAdd(key: string | number | QuarkBuffer, fields: { [any]: any }, options: { [string]: any }?, callback: function?): (string?, string?)
+    function StreamAdd(key: string | number | QuarkBuffer, fields: { [any]: any }, options: { ID: string?, MaxLength: number?, Approximate: boolean? }?, callback: function?): (string?, string?)
     --- @return message
-    method StreamRange(key: string | number | QuarkBuffer, start: string?, stop: string?, options: { [string]: any }?, callback: function?): ({ ID: string, Fields: { [string]: string } }[]?, string?)
+    function StreamRange(key: string | number | QuarkBuffer, start: string?, stop: string?, options: { Count: number?, Reverse: boolean? }?, callback: function?): ({ ID: string, Fields: { [string]: string } }[]?, string?)
     --- @return message
-    method StreamRead(streams: { [string]: string }, options: { [string]: any }?, callback: function?): ({ [string]: { ID: string, Fields: { [string]: string } }[] }?, string?)
+    function StreamRead(streams: { [string]: string }, options: ({ Count: number?, Block: (number | string)? })?, callback: function?): ({ [string]: { ID: string, Fields: { [string]: string } }[] }?, string?)
     --- @return message
-    method StreamLength(key: string | number | QuarkBuffer, callback: function?): (number?, string?)
+    function StreamLength(key: string | number | QuarkBuffer, callback: function?): (number?, string?)
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method StreamDelete(key: string | number | QuarkBuffer, id: string, ...: any): (number?, string?)
+    function StreamDelete(key: string | number | QuarkBuffer, id: string, ...: any): (number?, string?)
     --- @return message
-    method StreamTrim(key: string | number | QuarkBuffer, max_length: number, options: { [string]: any }?, callback: function?): (number?, string?)
+    function StreamTrim(key: string | number | QuarkBuffer, max_length: number, options: { Approximate: boolean? }?, callback: function?): (number?, string?)
     --- @return message
-    method StreamCreateGroup(key: string | number | QuarkBuffer, group: string, options: { [string]: any }?, callback: function?): (boolean?, string?)
+    function StreamCreateGroup(key: string | number | QuarkBuffer, group: string, options: { ID: string?, MakeStream: boolean? }?, callback: function?): (boolean?, string?)
     --- @return message
-    method StreamReadGroup(group: string, consumer: string, streams: { [any]: any } | string[], options: { [string]: any }?, callback: function?): ({ [string]: { ID: string, Fields: { [string]: string } }[] }?, string?)
+    function StreamReadGroup(group: string, consumer: string, streams: { [any]: any } | string[], options: ({ Count: number?, Block: (number | string)?, NoAck: boolean? })?, callback: function?): ({ [string]: { ID: string, Fields: { [string]: string } }[] }?, string?)
     --- @param ... Arguments, optionally followed by a callback
     --- @return message
-    method StreamAck(key: string | number | QuarkBuffer, group: string, id: string, ...: any): (number?, string?)
+    function StreamAck(key: string | number | QuarkBuffer, group: string, id: string, ...: any): (number?, string?)
     --- @return message
-    method StreamPending(key: string | number | QuarkBuffer, group: string, callback: function?): ({ Count: number, First: string?, Last: string?, Consumers: { [string]: number } }?, string?)
+    function StreamPending(key: string | number | QuarkBuffer, group: string, callback: function?): ({ Count: number, First: string?, Last: string?, Consumers: { [string]: number } }?, string?)
     --- @return message
-    method StreamClaim(key: string | number | QuarkBuffer, group: string, consumer: string, min_idle: number, options: { [string]: any }?, callback: function?): ({ Entries: { ID: string, Fields: { [string]: string } }[], Next: string }?, string?)
-    method IsClosed(): boolean
-    method Close(): void
+    function StreamClaim(key: string | number | QuarkBuffer, group: string, consumer: string, min_idle: number, options: { Start: string?, Count: number? }?, callback: function?): ({ Entries: { ID: string, Fields: { [string]: string } }[], Next: string }?, string?)
+    function IsClosed(): boolean
+    function Close(): void
 end
 
 --- Events: Connect, Message(channel, message, pattern), Disconnect(reason), Error(message), Close(reason).
 @side(server)
-declare interface QuarkRedisSubscriber extends QuarkEmitter
-    method Listen(channel: string, ...: string): void
-    method Unlisten(channel: string, ...: string): void
-    method ListenPattern(channel: string, ...: string): void
-    method UnlistenPattern(channel: string, ...: string): void
-    method GetChannels(): string[]
-    method GetPatterns(): string[]
-    method GetState(): string
-    method IsOpen(): boolean
-    method Close(): void
+declare class QuarkRedisSubscriber extends QuarkEmitter
+    function Listen(channel: string, ...: string): void
+    function Unlisten(channel: string, ...: string): void
+    function ListenPattern(channel: string, ...: string): void
+    function UnlistenPattern(channel: string, ...: string): void
+    function GetChannels(): string[]
+    function GetPatterns(): string[]
+    function GetState(): string
+    function IsOpen(): boolean
+    function Close(): void
 end
 
 --- Events: Entry(stream, id, fields), Connect, Disconnect(reason), Error(message), Close(reason).
 @side(server)
-declare interface QuarkRedisStreamReader extends QuarkEmitter
-    method GetState(): string
-    method IsOpen(): boolean
-    method Close(): void
+declare class QuarkRedisStreamReader extends QuarkEmitter
+    function GetState(): string
+    function IsOpen(): boolean
+    function Close(): void
 end
 
 @side(server)
 declare interface QuarkRedisModule
-    function Connect(target: (string | string[] | { [string]: any })?, options: { [string]: any }?): QuarkRedisClient
-    function Subscriber(target: (string | string[] | { [string]: any })?, options: { [string]: any }?): QuarkRedisSubscriber
-    function StreamReader(target: string | string[] | { [string]: any }, options: { [string]: any }): QuarkRedisStreamReader
+    function Connect(target: (string | string[] | { Sentinels: string[], MasterName: string })?, options: ({ Username: string?, Password: string?, Database: number?, Timeout: (number | string)?, Retries: number?, CA: string?, TLS: boolean?, ReadFromReplicas: boolean? })?): QuarkRedisClient
+    function Subscriber(target: (string | string[] | { Sentinels: string[], MasterName: string })?, options: ({ Username: string?, Password: string?, Database: number?, Timeout: (number | string)?, Retries: number?, CA: string?, TLS: boolean?, ReadFromReplicas: boolean? })?): QuarkRedisSubscriber
+    function StreamReader(target: string | string[] | { Sentinels: string[], MasterName: string }, options: { Streams: string | string[], Start: string?, Group: string?, Consumer: string?, CreateGroup: boolean?, AutoAck: boolean?, Count: number?, Block: (number | string)?, Username: string?, Password: string?, Database: number?, Timeout: (number | string)?, CA: string? }): QuarkRedisStreamReader
 end
 
 @side(server)
-declare interface QuarkFlowField
+declare class QuarkFlowField
     --- @return dx
     --- @return dy
-    method GetDirection(x: number, y: number): (number, number)
-    method GetDistance(x: number, y: number): number?
-    method GetPath(x: number, y: number): { X: number, Y: number }[]?
-    method IsReachable(x: number, y: number): boolean
+    function GetDirection(x: number, y: number): (number, number)
+    function GetDistance(x: number, y: number): number?
+    function GetPath(x: number, y: number): { X: number, Y: number }[]?
+    function IsReachable(x: number, y: number): boolean
 end
 
 --- Pathfinding grid.
 @side(server)
-declare interface QuarkGrid
+declare class QuarkGrid
     --- @return width
     --- @return height
-    method GetSize(): (number, number)
-    method SetBlocked(x: number, y: number, blocked: boolean?): void
-    method IsBlocked(x: number, y: number): boolean
-    method SetCost(x: number, y: number, cost: number | boolean): void
-    method GetCost(x: number, y: number): number?
-    method Fill(cost: number | boolean): void
-    method FillRect(x1: number, y1: number, x2: number, y2: number, cost: number | boolean): void
-    method LoadCosts(values: number[] | QuarkBufferView): void
+    function GetSize(): (number, number)
+    function SetBlocked(x: number, y: number, blocked: boolean?): void
+    function IsBlocked(x: number, y: number): boolean
+    function SetCost(x: number, y: number, cost: number | boolean): void
+    function GetCost(x: number, y: number): number?
+    function Fill(cost: number | boolean): void
+    function FillRect(x1: number, y1: number, x2: number, y2: number, cost: number | boolean): void
+    function LoadCosts(values: number[] | QuarkBufferView): void
     --- @return cost_or_message
-    method FindPath(from: { [string]: any }, to: { [string]: any }, options: { [string]: any }?, callback: function?): ({ X: number, Y: number }[]?, number | string?)
-    method FlowField(goals: { [string]: any } | { [string]: any }[], options: { [string]: any }?, callback: function?): QuarkFlowField
-    method HasLineOfSight(from: { [string]: any }, to: { [string]: any }): boolean
+    function FindPath(from: { X: number, Y: number }, to: { X: number, Y: number }, options: { Algorithm: string?, MaxNodes: number?, Smooth: boolean? }?, callback: function?): ({ X: number, Y: number }[]?, number | string?)
+    function FlowField(goals: { X: number, Y: number } | { X: number, Y: number }[], options: { MaxCost: number? }?, callback: function?): QuarkFlowField
+    function HasLineOfSight(from: { X: number, Y: number }, to: { X: number, Y: number }): boolean
     --- @return x
     --- @return y
     --- @return inside
-    method ToCell(position: Vector | { [string]: any } | number[]): (number, number, boolean)
-    method ToWorld(x: number, y: number, z: number?): Vector
-    method Clone(): QuarkGrid
+    function ToCell(position: Vector | { X: number, Y: number, Z: number? } | number[]): (number, number, boolean)
+    function ToWorld(x: number, y: number, z: number?): Vector
+    function Clone(): QuarkGrid
 end
 
 --- Navigation graph.
 @side(server)
-declare interface QuarkGraph
-    method AddNode(id: number | string, position: (Vector | { [string]: any } | number[])?): void
-    method RemoveNode(id: number | string): boolean
-    method AddEdge(from: number | string, to: number | string, cost: number?, options: { [string]: any }?): void
-    method RemoveEdge(from: number | string, to: number | string, both: boolean?): void
-    method HasNode(id: number | string): boolean
-    method GetNodeCount(): number
-    method GetPosition(id: number | string): Vector?
-    method GetNeighbors(id: number | string): ({ ID: number | string, Cost: number })[]
+declare class QuarkGraph
+    function AddNode(id: number | string, position: (Vector | { X: number, Y: number, Z: number? } | number[])?): void
+    function RemoveNode(id: number | string): boolean
+    function AddEdge(from: number | string, to: number | string, cost: number?, options: { Bidirectional: boolean? }?): void
+    function RemoveEdge(from: number | string, to: number | string, both: boolean?): void
+    function HasNode(id: number | string): boolean
+    function GetNodeCount(): number
+    function GetPosition(id: number | string): Vector?
+    function GetNeighbors(id: number | string): ({ ID: number | string, Cost: number })[]
     --- @return distance
-    method FindNearest(position: Vector | { [string]: any } | number[]): ((number | string)?, number?)
+    function FindNearest(position: Vector | { X: number, Y: number, Z: number? } | number[]): ((number | string)?, number?)
     --- @return cost_or_message
-    method FindPath(from: number | string, to: number | string, options: { [string]: any }?, callback: function?): (((number | string)[])?, number | string?)
-    method GetDistances(from: number | string, max_cost: number?): { [number | string]: number }
+    function FindPath(from: number | string, to: number | string, options: { Heuristic: boolean? }?, callback: function?): (((number | string)[])?, number | string?)
+    function GetDistances(from: number | string, max_cost: number?): { [number | string]: number }
 end
 
 @side(server)
 declare interface QuarkPathfindingModule
-    function Grid(width: number, height: number, options: { [string]: any }?): QuarkGrid
+    function Grid(width: number, height: number, options: ({ Diagonal: boolean?, CornerCutting: boolean?, CellSize: number?, Origin: (Vector | { X: number, Y: number, Z: number? } | number[])? })?): QuarkGrid
     function Graph(): QuarkGraph
 end
 
 @side(server)
-declare interface QuarkSpatialHash
-    method Set(id: number | string, position: Vector | { [string]: any } | number[]): void
-    method Remove(id: number | string): boolean
-    method Has(id: number | string): boolean
-    method GetPosition(id: number | string): Vector?
-    method GetCount(): number
-    method Clear(): void
-    method QueryRadius(position: Vector | { [string]: any } | number[], radius: number, options: { [string]: any }?): { [any]: any }
-    method QueryBox(minimum: Vector | { [string]: any } | number[], maximum: Vector | { [string]: any } | number[]): (number | string)[]
-    method FindNearest(position: Vector | { [string]: any } | number[], options: { [string]: any }?): { [any]: any }
+declare class QuarkSpatialHash
+    function Set(id: number | string, position: Vector | { X: number, Y: number, Z: number? } | number[]): void
+    function Remove(id: number | string): boolean
+    function Has(id: number | string): boolean
+    function GetPosition(id: number | string): Vector?
+    function GetCount(): number
+    function Clear(): void
+    function QueryRadius(position: Vector | { X: number, Y: number, Z: number? } | number[], radius: number, options: { Limit: number?, WithDistance: boolean? }?): { [any]: any }
+    function QueryBox(minimum: Vector | { X: number, Y: number, Z: number? } | number[], maximum: Vector | { X: number, Y: number, Z: number? } | number[]): (number | string)[]
+    function FindNearest(position: Vector | { X: number, Y: number, Z: number? } | number[], options: ({ Count: number?, MaxDistance: number?, Exclude: (number | string)?, WithDistance: boolean? })?): { [any]: any }
 end
 
 @side(server)
-declare interface QuarkKDTree
-    method FindNearest(position: Vector | { [string]: any } | number[], options: { [string]: any }?): { [any]: any }
-    method QueryRadius(position: Vector | { [string]: any } | number[], radius: number, options: { [string]: any }?): { [any]: any }
-    method GetCount(): number
+declare class QuarkKDTree
+    function FindNearest(position: Vector | { X: number, Y: number, Z: number? } | number[], options: { Count: number?, MaxDistance: number?, WithDistance: boolean? }?): { [any]: any }
+    function QueryRadius(position: Vector | { X: number, Y: number, Z: number? } | number[], radius: number, options: { WithDistance: boolean? }?): { [any]: any }
+    function GetCount(): number
 end
 
 @side(server)
 declare interface QuarkSpatialModule
     function Hash(cell_size: number?): QuarkSpatialHash
-    function KDTree(points: (Vector | { [string]: any } | number[])[] | QuarkBufferView): QuarkKDTree
-    function FindPairs(points: (Vector | { [string]: any } | number[])[] | QuarkBufferView, radius: number, options: { [string]: any }?): { A: number, B: number, Distance: number }[]
-    function FindWithin(points: (Vector | { [string]: any } | number[])[] | QuarkBufferView, center: Vector | { [string]: any } | number[], radius: number, options: { [string]: any }?): { [any]: any }
-    function Distances(points: (Vector | { [string]: any } | number[])[] | QuarkBufferView, center: Vector | { [string]: any } | number[]): number[]
+    function KDTree(points: (Vector | { X: number, Y: number, Z: number? } | number[])[] | QuarkBufferView): QuarkKDTree
+    function FindPairs(points: (Vector | { X: number, Y: number, Z: number? } | number[])[] | QuarkBufferView, radius: number, options: { Limit: number? }?): { A: number, B: number, Distance: number }[]
+    function FindWithin(points: (Vector | { X: number, Y: number, Z: number? } | number[])[] | QuarkBufferView, center: Vector | { X: number, Y: number, Z: number? } | number[], radius: number, options: { WithDistance: boolean? }?): { [any]: any }
+    function Distances(points: (Vector | { X: number, Y: number, Z: number? } | number[])[] | QuarkBufferView, center: Vector | { X: number, Y: number, Z: number? } | number[]): number[]
 end
 
 --- Result of Test.Expect, Not inverts every matcher.
 @side(server)
-declare interface QuarkExpectation
+declare class QuarkExpectation
     Not: QuarkExpectation
-    method ToBe(expected: any): void
-    method ToEqual(expected: any): void
-    method ToBeNil(): void
-    method ToBeTruthy(): void
-    method ToBeFalsy(): void
-    method ToBeType(name: string): void
-    method ToBeGreaterThan(number: number): void
-    method ToBeGreaterThanOrEqual(number: number): void
-    method ToBeLessThan(number: number): void
-    method ToBeLessThanOrEqual(number: number): void
-    method ToBeCloseTo(expected: number, tolerance: number?): void
-    method ToContain(item: any): void
-    method ToMatch(pattern: string): void
-    method ToHaveLength(length: number): void
-    method ToThrow(fragment: string?): void
-    method ToHaveBeenCalled(): void
-    method ToHaveBeenCalledTimes(count: number): void
-    method ToHaveBeenCalledWith(...: any): void
+    function ToBe(expected: any): void
+    function ToEqual(expected: any): void
+    function ToBeNil(): void
+    function ToBeTruthy(): void
+    function ToBeFalsy(): void
+    function ToBeType(name: string): void
+    function ToBeGreaterThan(number: number): void
+    function ToBeGreaterThanOrEqual(number: number): void
+    function ToBeLessThan(number: number): void
+    function ToBeLessThanOrEqual(number: number): void
+    function ToBeCloseTo(expected: number, tolerance: number?): void
+    function ToContain(item: any): void
+    function ToMatch(pattern: string): void
+    function ToHaveLength(length: number): void
+    function ToThrow(fragment: string?): void
+    function ToHaveBeenCalled(): void
+    function ToHaveBeenCalledTimes(count: number): void
+    function ToHaveBeenCalledWith(...: any): void
 end
 
 @side(server)
@@ -1394,10 +1421,10 @@ declare interface QuarkTestingModule
     function Describe(name: string, body: () -> void): void
     function DescribeOnly(name: string, body: () -> void): void
     function DescribeSkip(name: string, body: () -> void): void
-    function It(name: string, body: () -> void, options: { [string]: any }?): void
-    function Test(name: string, body: () -> void, options: { [string]: any }?): void
-    function Only(name: string, body: () -> void, options: { [string]: any }?): void
-    function Skip(name: string, body: nil | (() -> void), options: { [string]: any }?): void
+    function It(name: string, body: () -> void, options: { Timeout: number? }?): void
+    function Test(name: string, body: () -> void, options: { Timeout: number? }?): void
+    function Only(name: string, body: () -> void, options: { Timeout: number? }?): void
+    function Skip(name: string, body: (() -> void)?, options: { Timeout: number? }?): void
     function BeforeAll(hook: () -> void): void
     function AfterAll(hook: () -> void): void
     function BeforeEach(hook: () -> void): void
@@ -1409,7 +1436,7 @@ declare interface QuarkTestingModule
     function GetCalls(spy: function): { [any]: any }[]
     function ResetSpy(spy: function): void
     function SetImplementation(spy: function, implementation: function): void
-    function Run(options: { [string]: any }?): QuarkPromise
+    function Run(options: { Filter: string?, Timeout: number?, Silent: boolean? }?): QuarkPromise
     function Equal(left: any, right: any): boolean
     function Show(value: any): string
 end
@@ -1426,27 +1453,27 @@ end
 
 --- Compiled regular expression.
 @side(server)
-declare interface QuarkRegex
-    method IsMatch(text: string, start: number?): boolean
+declare class QuarkRegex
+    function IsMatch(text: string, start: number?): boolean
     --- @return start
     --- @return finish
     --- @return text
-    method Find(text: string, start: number?): (number?, number?, string?)
-    method Match(text: string, start: number?): QuarkRegexMatch?
-    method MatchAll(text: string, limit: number?): QuarkRegexMatch[]
+    function Find(text: string, start: number?): (number?, number?, string?)
+    function Match(text: string, start: number?): QuarkRegexMatch?
+    function MatchAll(text: string, limit: number?): QuarkRegexMatch[]
     --- @return count
-    method Replace(text: string, replacement: string | { [any]: any } | ((QuarkRegexMatch) -> string?), limit: number?): (string, number)
-    method Split(text: string, limit: number?): string[]
-    method Count(text: string): number
-    method GetPattern(): string
-    method GetGroupCount(): number
-    method GetGroupNames(): string[]
+    function Replace(text: string, replacement: string | { [any]: any } | ((QuarkRegexMatch) -> string?), limit: number?): (string, number)
+    function Split(text: string, limit: number?): string[]
+    function Count(text: string): number
+    function GetPattern(): string
+    function GetGroupCount(): number
+    function GetGroupNames(): string[]
 end
 
 @side(server)
 declare interface QuarkRegexModule
     --- @return message
-    function New(pattern: string, options: { [string]: any }?): (QuarkRegex?, string?)
+    function New(pattern: string, options: { CaseInsensitive: boolean?, Multiline: boolean?, DotAll: boolean?, Extended: boolean?, Ascii: boolean? }?): (QuarkRegex?, string?)
     function IsValid(pattern: string): boolean
     function Escape(text: string): string
     function IsMatch(pattern: string, text: string, start: number?): boolean
@@ -1462,14 +1489,14 @@ declare interface QuarkRegexModule
 end
 
 @side(server)
-declare interface QuarkWordFilter
-    method Contains(text: string): boolean
-    method Find(text: string): { Word: string, Text: string, Start: number, End: number }[]
+declare class QuarkWordFilter
+    function Contains(text: string): boolean
+    function Find(text: string): { Word: string, Text: string, Start: number, End: number }[]
     --- @return count
-    method Censor(text: string, replacement: string?): (string, number)
-    method Add(words: string[]): void
-    method Remove(words: string[]): void
-    method GetWords(): string[]
+    function Censor(text: string, replacement: string?): (string, number)
+    function Add(words: string[]): void
+    function Remove(words: string[]): void
+    function GetWords(): string[]
 end
 
 --- Unicode aware text helpers.
@@ -1489,46 +1516,46 @@ declare interface QuarkTextModule
     function Words(text: string): string[]
     function Sub(text: string, start: number, finish: number?): string
     function Truncate(text: string, length: number, suffix: string?): string
-    function Split(text: string, separator: string, options: { [string]: any }?): string[]
-    function Pad(text: string, width: number, options: { [string]: any }?): string
+    function Split(text: string, separator: string, options: { Trim: boolean?, RemoveEmpty: boolean?, Limit: number? }?): string[]
+    function Pad(text: string, width: number, options: { Align: string?, Char: string? }?): string
     function Wrap(text: string, width: number): string[]
     function Levenshtein(first: string, second: string): number
     function DamerauLevenshtein(first: string, second: string): number
     function Similarity(first: string, second: string, algorithm: string?): number
-    function FuzzyFind(query: string, list: any[], options: { [string]: any }?): { Item: any, Score: number, Index: number }[]
+    function FuzzyFind(query: string, list: any[], options: { Threshold: number?, Limit: number?, Key: string?, CaseSensitive: boolean? }?): { Item: any, Score: number, Index: number }[]
     --- @return score
-    function Closest(query: string, list: any[], options: { [string]: any }?): (any, number?)
-    function WordFilter(words: string[], options: { [string]: any }?): QuarkWordFilter
+    function Closest(query: string, list: any[], options: { Threshold: number?, Limit: number?, Key: string?, CaseSensitive: boolean? }?): (any, number?)
+    function WordFilter(words: string[], options: { WholeWords: boolean?, Leetspeak: boolean?, Repeats: boolean? }?): QuarkWordFilter
 end
 
 --- Named Jinja templates.
 @side(server)
-declare interface QuarkTemplates
+declare class QuarkTemplates
     --- @return message
-    method Render(name: string, context: { [any]: any }?): (string?, string?)
+    function Render(name: string, context: { [any]: any }?): (string?, string?)
     --- @return message
-    method RenderString(source: string, context: { [any]: any }?): (string?, string?)
+    function RenderString(source: string, context: { [any]: any }?): (string?, string?)
     --- @return message
-    method Add(name: string, source: string): (boolean?, string?)
-    method Remove(name: string): void
-    method Has(name: string): boolean
-    method GetNames(): string[]
-    method AddFilter(name: string, callback: function): void
-    method AddFunction(name: string, callback: function): void
-    method AddTest(name: string, callback: function): void
+    function Add(name: string, source: string): (boolean?, string?)
+    function Remove(name: string): void
+    function Has(name: string): boolean
+    function GetNames(): string[]
+    function AddFilter(name: string, callback: function): void
+    function AddFunction(name: string, callback: function): void
+    function AddTest(name: string, callback: function): void
 end
 
 @side(server)
 declare interface QuarkTemplateModule
     --- @return message
-    function Render(source: string, context: { [any]: any }?, options: { [string]: any }?): (string?, string?)
+    function Render(source: string, context: { [any]: any }?, options: { AutoEscape: string?, Undefined: string?, TrimBlocks: boolean?, LstripBlocks: boolean?, KeepTrailingNewline: boolean?, Globals: { [any]: any }?, Fuel: number?, Filters: { [string]: function }?, Functions: { [string]: function }?, Tests: { [string]: function }?, Templates: { [string]: string }? }?): (string?, string?)
     --- @return message
-    function New(options: { [string]: any }?): (QuarkTemplates?, string?)
+    function New(options: { AutoEscape: string?, Undefined: string?, TrimBlocks: boolean?, LstripBlocks: boolean?, KeepTrailingNewline: boolean?, Globals: { [any]: any }?, Fuel: number?, Filters: { [string]: function }?, Functions: { [string]: function }?, Tests: { [string]: function }?, Templates: { [string]: string }? }?): (QuarkTemplates?, string?)
 end
 
 --- Immutable date with a time zone.
 @side(server)
-declare interface QuarkDateTime
+declare class QuarkDateTime
     Year: number
     Month: number
     Day: number
@@ -1542,51 +1569,53 @@ declare interface QuarkDateTime
     Zone: string
     --- Seconds from UTC
     Offset: number
-    method GetUnix(): number
-    method GetUnixMs(): number
-    method ToISO(): string
-    method ToRFC2822(): string
-    method Format(format: string, options: { [string]: any }?): string
-    method ToTable(): { [any]: any }
-    method InZone(zone: string): QuarkDateTime
-    method ToUTC(): QuarkDateTime
-    method Add(duration: number | string | { [string]: any }): QuarkDateTime
-    method Subtract(duration: number | string | { [string]: any }): QuarkDateTime
-    method With(fields: { [string]: any }): QuarkDateTime
-    method StartOf(unit: string): QuarkDateTime
-    method EndOf(unit: string): QuarkDateTime
+    operator <(other: QuarkDateTime): boolean
+    operator <=(other: QuarkDateTime): boolean
+    function GetUnix(): number
+    function GetUnixMs(): number
+    function ToISO(): string
+    function ToRFC2822(): string
+    function Format(format: string, options: { Locale: string? }?): string
+    function ToTable(): { [any]: any }
+    function InZone(zone: string): QuarkDateTime
+    function ToUTC(): QuarkDateTime
+    function Add(duration: number | string | { Years: number?, Months: number?, Weeks: number?, Days: number?, Hours: number?, Minutes: number?, Seconds: number?, Milliseconds: number? }): QuarkDateTime
+    function Subtract(duration: number | string | { Years: number?, Months: number?, Weeks: number?, Days: number?, Hours: number?, Minutes: number?, Seconds: number?, Milliseconds: number? }): QuarkDateTime
+    function With(fields: { Year: number?, Month: number?, Day: number?, Hour: number?, Minute: number?, Second: number?, Millisecond: number? }): QuarkDateTime
+    function StartOf(unit: string): QuarkDateTime
+    function EndOf(unit: string): QuarkDateTime
     --- Milliseconds, or a number in the unit.
-    method Since(other: QuarkDateTime, unit: string?): number
-    method Relative(now: QuarkDateTime?): string
-    method IsBefore(other: QuarkDateTime): boolean
-    method IsAfter(other: QuarkDateTime): boolean
+    function Since(other: QuarkDateTime, unit: string?): number
+    function Relative(now: QuarkDateTime?): string
+    function IsBefore(other: QuarkDateTime): boolean
+    function IsAfter(other: QuarkDateTime): boolean
 end
 
 @side(server)
-declare interface QuarkCron
-    method Next(after: QuarkDateTime?): QuarkDateTime?
-    method NextMany(count: number, after: QuarkDateTime?): QuarkDateTime[]
-    method Matches(date: QuarkDateTime): boolean
-    method GetExpression(): string
-    method GetZone(): string
+declare class QuarkCron
+    function Next(after: QuarkDateTime?): QuarkDateTime?
+    function NextMany(count: number, after: QuarkDateTime?): QuarkDateTime[]
+    function Matches(date: QuarkDateTime): boolean
+    function GetExpression(): string
+    function GetZone(): string
 end
 
 @side(server)
-declare interface QuarkSchedule
-    method Stop(): void
-    method IsActive(): boolean
-    method GetNext(): QuarkDateTime?
-    method GetExpression(): string
+declare class QuarkSchedule
+    function Stop(): void
+    function IsActive(): boolean
+    function GetNext(): QuarkDateTime?
+    function GetExpression(): string
 end
 
 @side(server)
 declare interface QuarkTimeModule
     function Now(zone: string?): QuarkDateTime
-    function Date(fields: { [string]: any }, zone: string?): QuarkDateTime
+    function Date(fields: { Year: number, Month: number?, Day: number?, Hour: number?, Minute: number?, Second: number?, Millisecond: number? }, zone: string?): QuarkDateTime
     function FromUnix(seconds: number, zone: string?): QuarkDateTime
     function FromUnixMs(milliseconds: number, zone: string?): QuarkDateTime
     --- @return message
-    function Parse(text: string, options: { [string]: any }?): (QuarkDateTime?, string?)
+    function Parse(text: string, options: { Zone: string?, Format: string? }?): (QuarkDateTime?, string?)
     function Unix(): number
     function UnixMs(): number
     function IsDateTime(value: any): boolean
@@ -1595,129 +1624,129 @@ declare interface QuarkTimeModule
     function GetSystemZone(): string
     --- @return message
     function ParseDuration(text: string): (number?, string?)
-    function FormatDuration(duration: number | string, options: { [string]: any }?): string
+    function FormatDuration(duration: number | string, options: { Style: string?, Largest: number? }?): string
     --- @return message
-    function Cron(expression: string, options: { [string]: any }?): (QuarkCron?, string?)
+    function Cron(expression: string, options: { Zone: string? }?): (QuarkCron?, string?)
     --- @return message
-    function Schedule(expression: string, callback: (QuarkDateTime) -> void, options: { [string]: any }?): (QuarkSchedule?, string?)
+    function Schedule(expression: string, callback: (QuarkDateTime) -> void, options: { Zone: string? }?): (QuarkSchedule?, string?)
 end
 
 --- Token bucket or sliding window limiter.
 @side(server)
-declare interface QuarkRateLimiter
+declare class QuarkRateLimiter
     --- @return allowed
     --- @return retry_after
     --- @return remaining
-    method Take(key: any, cost: number?): (boolean, number, number)
+    function Take(key: any, cost: number?): (boolean, number, number)
     --- @return allowed
     --- @return retry_after
     --- @return remaining
-    method Check(key: any, cost: number?): (boolean, number, number)
-    method GetRemaining(key: any): number
-    method Reset(key: any): void
-    method Clear(): void
-    method Prune(): void
-    method GetCount(): number
+    function Check(key: any, cost: number?): (boolean, number, number)
+    function GetRemaining(key: any): number
+    function Reset(key: any): void
+    function Clear(): void
+    function Prune(): void
+    function GetCount(): number
 end
 
 --- Rate limit stored in Redis.
 @side(server)
-declare interface QuarkSharedRateLimiter
+declare class QuarkSharedRateLimiter
     --- @return allowed
     --- @return retry_after_or_message
     --- @return remaining
-    method Take(key: string | number, cost: number?, callback: function?): (boolean?, number | string?, number?)
+    function Take(key: string | number, cost: number?, callback: function?): (boolean?, number | string?, number?)
     --- @return allowed
     --- @return retry_after_or_message
     --- @return remaining
-    method Check(key: string | number, cost: number?, callback: function?): (boolean?, number | string?, number?)
+    function Check(key: string | number, cost: number?, callback: function?): (boolean?, number | string?, number?)
     --- @return message
-    method Reset(key: string | number, callback: function?): (boolean?, string?)
+    function Reset(key: string | number, callback: function?): (boolean?, string?)
 end
 
 @side(server)
 declare interface QuarkRateLimitModule
-    function TokenBucket(options: { [string]: any }): QuarkRateLimiter
-    function SlidingWindow(options: { [string]: any }): QuarkRateLimiter
-    function Redis(client: QuarkRedisClient, options: { [string]: any }): QuarkSharedRateLimiter
+    function TokenBucket(options: { Capacity: number, Per: (number | string)?, Rate: number?, Clock: (() -> number)? }): QuarkRateLimiter
+    function SlidingWindow(options: { Limit: number, Window: number | string, Clock: (() -> number)? }): QuarkRateLimiter
+    function Redis(client: QuarkRedisClient, options: { Limit: number?, Window: (number | string)?, Capacity: number?, Per: (number | string)?, Rate: number?, Prefix: string? }): QuarkSharedRateLimiter
 end
 
 --- LRU cache with expiry.
 @side(server)
-declare interface QuarkCache
-    method Get(key: any): any
-    method Peek(key: any): any
-    method Has(key: any): boolean
-    method Set(key: any, value: any, ttl: (number | string | boolean)?): QuarkCache
-    method GetOrSet(key: any, factory: (any) -> any, ttl: (number | string | boolean)?): any
-    method Delete(key: any): boolean
-    method Clear(): void
-    method Prune(): number
-    method GetSize(): number
-    method GetCapacity(): number?
-    method GetKeys(): any[]
-    method GetTTL(key: any): number?
-    method GetStats(): { Hits: number, Misses: number, Evictions: number, HitRate: number }
+declare class QuarkCache
+    function Get(key: any): any
+    function Peek(key: any): any
+    function Has(key: any): boolean
+    function Set(key: any, value: any, ttl: (number | string | boolean)?): QuarkCache
+    function GetOrSet(key: any, factory: (any) -> any, ttl: (number | string | boolean)?): any
+    function Delete(key: any): boolean
+    function Clear(): void
+    function Prune(): number
+    function GetSize(): number
+    function GetCapacity(): number?
+    function GetKeys(): any[]
+    function GetTTL(key: any): number?
+    function GetStats(): { Hits: number, Misses: number, Evictions: number, HitRate: number }
 end
 
 --- Cache stored in Redis as JSON.
 @side(server)
-declare interface QuarkSharedCache
+declare class QuarkSharedCache
     --- @return message
-    method Get(key: string | number, callback: function?): (any, string?)
+    function Get(key: string | number, callback: function?): (any, string?)
     --- @return message
-    method Set(key: string | number, value: any, ttl: (number | string | boolean)?, callback: function?): (boolean?, string?)
+    function Set(key: string | number, value: any, ttl: (number | string | boolean)?, callback: function?): (boolean?, string?)
     --- @return message
-    method GetOrSet(key: string | number, factory: (string | number) -> any, ttl: (number | string | boolean)?, callback: function?): (any, string?)
+    function GetOrSet(key: string | number, factory: (string | number) -> any, ttl: (number | string | boolean)?, callback: function?): (any, string?)
     --- @return message
-    method Has(key: string | number, callback: function?): (boolean?, string?)
+    function Has(key: string | number, callback: function?): (boolean?, string?)
     --- @return message
-    method Delete(key: string | number, callback: function?): (boolean?, string?)
+    function Delete(key: string | number, callback: function?): (boolean?, string?)
 end
 
 @side(server)
 declare interface QuarkCacheModule
-    function New(options: { [string]: any }?): QuarkCache
-    function Memoize(callback: (any) -> any, options: { [string]: any }?): ((any) -> any, QuarkCache)
-    function Redis(client: QuarkRedisClient, options: { [string]: any }?): QuarkSharedCache
+    function New(options: ({ Capacity: number?, TTL: (number | string)?, OnEvict: ((any, any, string) -> void)?, Clock: (() -> number)? })?): QuarkCache
+    function Memoize(callback: (any) -> any, options: ({ Capacity: number?, TTL: (number | string)? })?): ((any) -> any, QuarkCache)
+    function Redis(client: QuarkRedisClient, options: ({ Prefix: string?, TTL: (number | string)? })?): QuarkSharedCache
 end
 
 @side(server)
-declare interface QuarkPriorityQueue
-    method Push(value: any, priority: number): QuarkPriorityQueue
+declare class QuarkPriorityQueue
+    function Push(value: any, priority: number): QuarkPriorityQueue
     --- @return priority
-    method Pop(): (any, number?)
+    function Pop(): (any, number?)
     --- @return priority
-    method Peek(): (any, number?)
-    method Remove(value: any): boolean
-    method GetSize(): number
-    method IsEmpty(): boolean
-    method Clear(): void
-    method ToList(): { Value: any, Priority: number }[]
+    function Peek(): (any, number?)
+    function Remove(value: any): boolean
+    function GetSize(): number
+    function IsEmpty(): boolean
+    function Clear(): void
+    function ToList(): { Value: any, Priority: number }[]
 end
 
 @side(server)
 declare interface QuarkPriorityQueueModule
-    function New(options: { [string]: any }?): QuarkPriorityQueue
+    function New(options: { Order: string? }?): QuarkPriorityQueue
 end
 
 @side(server)
-declare interface QuarkRingBuffer
+declare class QuarkRingBuffer
     --- @return evicted
-    method Push(value: any): any
-    method Shift(): any
-    method Pop(): any
-    method Get(index: number): any
-    method Set(index: number, value: any): void
-    method GetFirst(): any
-    method GetLast(): any
-    method GetSize(): number
-    method GetCapacity(): number
-    method IsEmpty(): boolean
-    method IsFull(): boolean
-    method Clear(): void
-    method ToList(): any[]
-    method Values(): () -> (number?, any)
+    function Push(value: any): any
+    function Shift(): any
+    function Pop(): any
+    function Get(index: number): any
+    function Set(index: number, value: any): void
+    function GetFirst(): any
+    function GetLast(): any
+    function GetSize(): number
+    function GetCapacity(): number
+    function IsEmpty(): boolean
+    function IsFull(): boolean
+    function Clear(): void
+    function ToList(): any[]
+    function Values(): () -> (number?, any)
 end
 
 @side(server)
@@ -1727,28 +1756,29 @@ end
 
 --- Compact native booleans, indexed from the package index base.
 @side(server)
-declare interface QuarkBitset
-    method Get(index: number): boolean
-    method Set(index: number, value: boolean?): void
-    method Unset(index: number): void
-    method Toggle(index: number): boolean
-    method SetAll(value: boolean?): void
-    method Invert(): QuarkBitset
-    method Count(): number
-    method Any(): boolean
-    method None(): boolean
-    method All(): boolean
-    method NextSet(start: number?): number?
-    method NextUnset(start: number?): number?
-    method GetIndices(): number[]
-    method Union(other: QuarkBitset): QuarkBitset
-    method Intersect(other: QuarkBitset): QuarkBitset
-    method Difference(other: QuarkBitset): QuarkBitset
-    method SymmetricDifference(other: QuarkBitset): QuarkBitset
-    method Clone(): QuarkBitset
-    method Resize(size: number): void
-    method GetSize(): number
-    method ToBytes(): string
+declare class QuarkBitset
+    operator #(): number
+    function Get(index: number): boolean
+    function Set(index: number, value: boolean?): void
+    function Unset(index: number): void
+    function Toggle(index: number): boolean
+    function SetAll(value: boolean?): void
+    function Invert(): QuarkBitset
+    function Count(): number
+    function Any(): boolean
+    function None(): boolean
+    function All(): boolean
+    function NextSet(start: number?): number?
+    function NextUnset(start: number?): number?
+    function GetIndices(): number[]
+    function Union(other: QuarkBitset): QuarkBitset
+    function Intersect(other: QuarkBitset): QuarkBitset
+    function Difference(other: QuarkBitset): QuarkBitset
+    function SymmetricDifference(other: QuarkBitset): QuarkBitset
+    function Clone(): QuarkBitset
+    function Resize(size: number): void
+    function GetSize(): number
+    function ToBytes(): string
 end
 
 @side(server)
@@ -1759,47 +1789,47 @@ declare interface QuarkBitsetModule
 end
 
 @side(server)
-declare interface QuarkCounter
-    method Inc(amount_or_labels: (number | { [any]: any })?, labels: { [any]: any }?): void
-    method Get(labels: { [any]: any }?): number
-    method Reset(): void
+declare class QuarkCounter
+    function Inc(amount_or_labels: (number | { [any]: any })?, labels: { [any]: any }?): void
+    function Get(labels: { [any]: any }?): number
+    function Reset(): void
 end
 
 @side(server)
-declare interface QuarkGauge
-    method Set(value: number, labels: { [any]: any }?): void
-    method Inc(amount_or_labels: (number | { [any]: any })?, labels: { [any]: any }?): void
-    method Dec(amount_or_labels: (number | { [any]: any })?, labels: { [any]: any }?): void
-    method Get(labels: { [any]: any }?): number
-    method Reset(): void
+declare class QuarkGauge
+    function Set(value: number, labels: { [any]: any }?): void
+    function Inc(amount_or_labels: (number | { [any]: any })?, labels: { [any]: any }?): void
+    function Dec(amount_or_labels: (number | { [any]: any })?, labels: { [any]: any }?): void
+    function Get(labels: { [any]: any }?): number
+    function Reset(): void
 end
 
 @side(server)
-declare interface QuarkHistogram
-    method Observe(value: number, labels: { [any]: any }?): void
-    method Time(callback: () -> ...any, labels: { [any]: any }?): ...any
-    method Get(labels: { [any]: any }?): { Count: number, Sum: number }
-    method Reset(): void
+declare class QuarkHistogram
+    function Observe(value: number, labels: { [any]: any }?): void
+    function Time(callback: () -> ...any, labels: { [any]: any }?): ...any
+    function Get(labels: { [any]: any }?): { Count: number, Sum: number }
+    function Reset(): void
 end
 
 @side(server)
-declare interface QuarkMetricsRegistry
-    method Counter(name: string, help: string?, options: { [string]: any }?): QuarkCounter
-    method Gauge(name: string, help: string?, options: { [string]: any }?): QuarkGauge
-    method Histogram(name: string, help: string?, options: { [string]: any }?): QuarkHistogram
-    method Get(name: string): QuarkCounter | QuarkGauge | QuarkHistogram?
-    method Unregister(name: string): boolean
-    method Clear(): void
-    method Render(): string
-    method Expose(server: QuarkHTTPServer, path: string?): QuarkHTTPServer
+declare class QuarkMetricsRegistry
+    function Counter(name: string, help: string?, options: ({ Labels: string[]?, Buckets: number[]?, Collect: (() -> (number | { Labels: { [any]: any }, Value: number }[]))? })?): QuarkCounter
+    function Gauge(name: string, help: string?, options: ({ Labels: string[]?, Buckets: number[]?, Collect: (() -> (number | { Labels: { [any]: any }, Value: number }[]))? })?): QuarkGauge
+    function Histogram(name: string, help: string?, options: ({ Labels: string[]?, Buckets: number[]?, Collect: (() -> (number | { Labels: { [any]: any }, Value: number }[]))? })?): QuarkHistogram
+    function Get(name: string): QuarkCounter | QuarkGauge | QuarkHistogram?
+    function Unregister(name: string): boolean
+    function Clear(): void
+    function Render(): string
+    function Expose(server: QuarkHTTPServer, path: string?): QuarkHTTPServer
 end
 
 --- Prometheus metrics, functions use the default registry.
 @side(server)
 declare interface QuarkMetricsModule
-    function Counter(name: string, help: string?, options: { [string]: any }?): QuarkCounter
-    function Gauge(name: string, help: string?, options: { [string]: any }?): QuarkGauge
-    function Histogram(name: string, help: string?, options: { [string]: any }?): QuarkHistogram
+    function Counter(name: string, help: string?, options: ({ Labels: string[]?, Buckets: number[]?, Collect: (() -> (number | { Labels: { [any]: any }, Value: number }[]))? })?): QuarkCounter
+    function Gauge(name: string, help: string?, options: ({ Labels: string[]?, Buckets: number[]?, Collect: (() -> (number | { Labels: { [any]: any }, Value: number }[]))? })?): QuarkGauge
+    function Histogram(name: string, help: string?, options: ({ Labels: string[]?, Buckets: number[]?, Collect: (() -> (number | { Labels: { [any]: any }, Value: number }[]))? })?): QuarkHistogram
     function Get(name: string): QuarkCounter | QuarkGauge | QuarkHistogram?
     function Unregister(name: string): boolean
     function Clear(): void
@@ -1810,22 +1840,22 @@ declare interface QuarkMetricsModule
 end
 
 @side(server)
-declare interface QuarkLogger
-    method Debug(message: any, fields: { [any]: any }?): void
-    method Info(message: any, fields: { [any]: any }?): void
-    method Warn(message: any, fields: { [any]: any }?): void
-    method Error(message: any, fields: { [any]: any }?): void
-    method Log(level: string, message: any, fields: { [any]: any }?): void
-    method With(fields: { [any]: any }): QuarkLogger
-    method SetLevel(level: string): void
-    method GetLevel(): string
-    method IsEnabled(level: string): boolean
-    method Flush(): void
+declare class QuarkLogger
+    function Debug(message: any, fields: { [any]: any }?): void
+    function Info(message: any, fields: { [any]: any }?): void
+    function Warn(message: any, fields: { [any]: any }?): void
+    function Error(message: any, fields: { [any]: any }?): void
+    function Log(level: string, message: any, fields: { [any]: any }?): void
+    function With(fields: { [any]: any }): QuarkLogger
+    function SetLevel(level: string): void
+    function GetLevel(): string
+    function IsEnabled(level: string): boolean
+    function Flush(): void
 end
 
 @side(server)
 declare interface QuarkLogModule
-    function New(options: { [string]: any }?): QuarkLogger
+    function New(options: { Name: string?, Level: string?, Format: string?, Fields: { [any]: any }?, Console: boolean?, File: string?, MaxFileSize: number?, MaxFiles: number? }?): QuarkLogger
     function Debug(message: any, fields: { [any]: any }?): void
     function Info(message: any, fields: { [any]: any }?): void
     function Warn(message: any, fields: { [any]: any }?): void
@@ -1839,19 +1869,19 @@ declare interface QuarkWorkerOptions
 end
 
 @side(server)
-declare interface QuarkWorkerPool
+declare class QuarkWorkerPool
     --- Calls a global function of the pool code, the last argument has to be the callback.
-    method Call(name: string, ...: nil | boolean | number | string | { [any]: any } | ((...(nil | boolean | number | string | { [any]: any })) -> void)): boolean
-    method GetSize(): number
-    method GetPending(): number
-    method Close(): void
+    function Call(name: string, ...: boolean | number | string | { [any]: any } | ((...(boolean | number | string | { [any]: any } | nil)) -> void) | nil): boolean
+    function GetSize(): number
+    function GetPending(): number
+    function Close(): void
 end
 
 @side(server)
 declare interface QuarkWorkerModule
-    function Run(code: string, data: nil | boolean | number | string | { [any]: any }, options: ({ [string]: any } | function)?, callback: nil | ((...(nil | boolean | number | string | { [any]: any })) -> void)): ...any
+    function Run(code: string, data: (boolean | number | string | { [any]: any } | nil)?, options: (QuarkWorkerOptions | function)?, callback: ((...(boolean | number | string | { [any]: any } | nil)) -> void)?): ...any
     --- @return message
-    function Pool(code: string, options: { [string]: any }?): (QuarkWorkerPool?, string?)
+    function Pool(code: string, options: (QuarkWorkerOptions | { Size: number? })?): (QuarkWorkerPool?, string?)
 end
 
 @side(server)

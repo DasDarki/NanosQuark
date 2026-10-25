@@ -25,6 +25,8 @@
 ---@field Y number
 ---@field Z number
 ---@field W number
+---@operator mul(QuarkQuaternion): QuarkQuaternion
+---@operator mul(QuarkVector): Vector
 local Quaternion = {}
 
 ---@param other QuarkRotation
@@ -76,6 +78,7 @@ function Quaternion:GetUp() end
 
 ---Compiled formula, can be called like a function.
 ---@class QuarkExpression
+---@operator call(table<string, number|boolean>?): number?, string?
 local Expression = {}
 
 ---@param variables? table<string, number|boolean>
@@ -476,6 +479,19 @@ function Geometry.BoundingBox(points, options) end
 
 ---Integer of any size, supports arithmetic operators.
 ---@class QuarkBigInt
+---@operator add(QuarkBigInt|integer|string): QuarkBigInt
+---@operator sub(QuarkBigInt|integer|string): QuarkBigInt
+---@operator mul(QuarkBigInt|integer|string): QuarkBigInt
+---@operator div(QuarkBigInt|integer|string): QuarkBigInt
+---@operator idiv(QuarkBigInt|integer|string): QuarkBigInt
+---@operator mod(QuarkBigInt|integer|string): QuarkBigInt
+---@operator pow(QuarkBigInt|integer|string): QuarkBigInt
+---@operator unm: QuarkBigInt
+---@operator concat(any): string
+---@diagnostic disable-next-line: unknown-operator
+---@operator lt(QuarkBigInt|integer|string): boolean
+---@diagnostic disable-next-line: unknown-operator
+---@operator le(QuarkBigInt|integer|string): boolean
 local BigInt = {}
 
 ---@param base? integer
@@ -558,6 +574,17 @@ function BigIntModule.Factorial(value) end
 
 ---Exact decimal number, supports arithmetic operators.
 ---@class QuarkDecimal
+---@operator add(QuarkDecimal|number|string): QuarkDecimal
+---@operator sub(QuarkDecimal|number|string): QuarkDecimal
+---@operator mul(QuarkDecimal|number|string): QuarkDecimal
+---@operator div(QuarkDecimal|number|string): QuarkDecimal
+---@operator mod(QuarkDecimal|number|string): QuarkDecimal
+---@operator unm: QuarkDecimal
+---@operator concat(any): string
+---@diagnostic disable-next-line: unknown-operator
+---@operator lt(QuarkDecimal|number|string): boolean
+---@diagnostic disable-next-line: unknown-operator
+---@operator le(QuarkDecimal|number|string): boolean
 local Decimal = {}
 
 ---@return string

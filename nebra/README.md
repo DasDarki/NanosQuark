@@ -25,7 +25,17 @@ Quark.Worker.Run("return ... * 2", 21, nil, function(value: any)
 end)
 ```
 
-Options tables are accepted as `{ [string]: any }` in parameters, since Nebra only accepts a table literal for a struct type when both match exactly. Return values keep their full types.
+Objects such as `QuarkImage` or `QuarkBigInt` are declared as classes, module tables and data shapes like options as interfaces. The operators Quark implements are declared as well:
+
+```lua
+local total = Quark.Decimal.New("19.99") * 3
+local view = Quark.Buffer.New(16):View("f32")
+view[0] = 1.5
+local formula = Quark.Math.Compile("2 * x + 1")
+local value = formula({ x = 3 })
+```
+
+Requires Nebra 0.5.11 or newer.
 
 ## Regenerating
 

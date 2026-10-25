@@ -22,7 +22,27 @@ PRIMITIVES = {
     "userdata": "userdata",
     "table": "{ [any]: any }",
 }
-LOOSE_TABLE = "{ [string]: any }"
+OPERATORS = {
+    "add": "+",
+    "sub": "-",
+    "mul": "*",
+    "div": "/",
+    "idiv": "//",
+    "mod": "%",
+    "pow": "^",
+    "unm": "-",
+    "concat": "..",
+    "len": "#",
+    "lt": "<",
+    "le": "<=",
+    "band": "&",
+    "bor": "|",
+    "bxor": "~",
+    "shl": "<<",
+    "shr": ">>",
+    "bnot": "~",
+    "call": "()",
+}
 
 
 class ParseError(Exception):
@@ -30,12 +50,10 @@ class ParseError(Exception):
 
 
 class TypeParser:
-    def __init__(self, text, aliases, shapes=frozenset(), loose=False):
+    def __init__(self, text, aliases):
         self.text = text
         self.position = 0
         self.aliases = aliases
-        self.shapes = shapes
-        self.loose = loose
 
     def skip_spaces(self):
         while self.position < len(self.text) and self.text[self.position] == " ":
@@ -65,13 +83,9 @@ class TypeParser:
 
     def union(self):
         parts = [self.postfix()]
-        while True:
-            self.skip_spaces()
-            if self.peek("|"):
-                self.position += 1
-                parts.append(self.postfix())
-            else:
-                break
+        while self.peek("|"):
+            self.position += 1
+            parts.append(self.postfix())
         return join_union(parts)
 
     def postfix(self):
@@ -94,27 +108,20 @@ class TypeParser:
             return inner
         if self.peek('"') or self.peek("'"):
             quote = self.text[self.position]
-            end = self.text.index(quote, self.position + 1)
-            self.position = end + 1
+            self.position = self.text.index(quote, self.position + 1) + 1
             return "string"
         if self.peek("{"):
             return self.table()
-        if re.compile(r"-?[0-9]").match(self.text, self.position):
-            match = re.compile(r"-?[0-9.]+").match(self.text, self.position)
-            self.position = match.end()
+        number = re.compile(r"-?[0-9][0-9.]*").match(self.text, self.position)
+        if number:
+            self.position = number.end()
             return "number"
-        if self.peek("..."):
-            self.position += 3
+        if self.accept("..."):
             return "...any"
         name = self.name()
         if name == "fun":
-            loose, self.loose = self.loose, False
-            try:
-                return self.function_type()
-            finally:
-                self.loose = loose
-        if name == "table" and self.peek("<"):
-            self.expect("<")
+            return self.function_type()
+        if name == "table" and self.accept("<"):
             key = self.union()
             self.expect(",")
             value = self.union()
@@ -124,11 +131,9 @@ class TypeParser:
             return "boolean"
         if name in PRIMITIVES:
             return PRIMITIVES[name]
-        aliases = self.aliases["loose" if self.loose else "strict"]
-        if name in aliases:
-            return f"({aliases[name]})" if "|" in aliases[name] else aliases[name]
-        if self.loose and name in self.shapes:
-            return LOOSE_TABLE
+        if name in self.aliases:
+            alias = self.aliases[name]
+            return f"({alias})" if "|" in alias else alias
         return name
 
     def function_type(self):
@@ -136,37 +141,26 @@ class TypeParser:
         parameters = []
         if not self.accept(")"):
             while True:
-                self.skip_spaces()
                 if self.accept("..."):
-                    kind = "any"
-                    if self.accept(":"):
-                        kind = self.union()
+                    kind = self.union() if self.accept(":") else "any"
                     parameters.append(f"...{group(kind)}")
                 else:
                     self.name()
                     optional = self.accept("?")
-                    kind = "any"
-                    if self.accept(":"):
-                        kind = self.union()
+                    kind = self.union() if self.accept(":") else "any"
                     parameters.append(nullable(kind) if optional else kind)
                 if self.accept(")"):
                     break
                 self.expect(",")
         returns = []
         if self.accept(":"):
-            returns.append(self.postfix_or_variadic())
-            while self.peek(",") and self.looks_like_return():
+            returns.append(self.return_type())
+            while self.peek(",") and self.continues_returns():
                 self.expect(",")
-                returns.append(self.postfix_or_variadic())
-        if not returns:
-            result = "void"
-        elif len(returns) == 1:
-            result = returns[0]
-        else:
-            result = "(" + ", ".join(returns) + ")"
-        return f"({', '.join(parameters)}) -> {result}"
+                returns.append(self.return_type())
+        return f"({', '.join(parameters)}) -> {tuple_of(returns)}"
 
-    def looks_like_return(self):
+    def continues_returns(self):
         saved = self.position
         try:
             self.expect(",")
@@ -177,41 +171,31 @@ class TypeParser:
         finally:
             self.position = saved
 
-    def postfix_or_variadic(self):
+    def return_type(self):
         if self.accept("..."):
             return "...any"
         parts = [self.postfix()]
         while self.peek("|"):
             self.position += 1
-            self.skip_spaces()
             parts.append(self.postfix())
         return group(join_union(parts))
 
     def table(self):
-        if self.loose:
-            loose, self.loose = self.loose, False
-            try:
-                self.table()
-            finally:
-                self.loose = loose
-            return LOOSE_TABLE
         self.expect("{")
         if self.accept("}"):
             return "{ [any]: any }"
-        if self.peek("["):
-            self.expect("[")
+        if self.accept("["):
             key = self.union()
             self.expect("]")
             self.expect(":")
             value = self.union()
             if self.accept(","):
-                values = [value]
                 while not self.accept("}"):
                     self.expect("[")
                     self.union()
                     self.expect("]")
                     self.expect(":")
-                    values.append(self.union())
+                    self.union()
                     self.accept(",")
                 return "any[]"
             self.expect("}")
@@ -237,6 +221,22 @@ class TypeParser:
         return result, self.text[self.position:].strip()
 
 
+def balanced(text):
+    depth = 0
+    for character in text:
+        if character in "({<[":
+            depth += 1
+        elif character in ")}>]":
+            depth -= 1
+            if depth < 0:
+                return False
+    return depth == 0
+
+
+def is_grouped(kind):
+    return kind.startswith("(") and kind.endswith(")") and balanced(kind[1:-1])
+
+
 def split_union(text):
     parts, depth, current = [], 0, ""
     for character in text:
@@ -254,61 +254,47 @@ def split_union(text):
 
 
 def join_union(parts):
-    flat = []
+    members = []
     for part in parts:
-        if part.startswith("(") and part.endswith(")") and balanced(part[1:-1]) and "->" not in part:
-            members = split_union(part[1:-1])
-        else:
-            members = [part]
-        for member in members:
-            if member not in flat:
-                flat.append(member)
-    if "any" in flat:
+        inner = split_union(part[1:-1]) if is_grouped(part) and "->" not in part else [part]
+        for member in inner:
+            if member not in members:
+                members.append(member)
+    if "any" in members:
         return "any"
-    has_nil = "nil" in flat
-    flat = [member for member in flat if member != "nil"]
-    if has_nil and len(flat) == 1:
-        return nullable(flat[0])
-    if len(flat) > 1:
-        functions = [group(member) for member in flat if "->" in member]
-        flat = [member for member in flat if "->" not in member] + functions
+    has_nil = "nil" in members
+    members = [member for member in members if member != "nil"]
+    if has_nil and len(members) == 1:
+        return nullable(members[0])
+    if len(members) > 1:
+        members = [group(member) if "->" in member else member for member in members]
     if has_nil:
-        flat.insert(0, "nil")
-    return " | ".join(flat)
-
-
-def balanced(text):
-    depth = 0
-    for character in text:
-        if character in "({<[":
-            depth += 1
-        elif character in ")}>]":
-            depth -= 1
-            if depth < 0:
-                return False
-    return depth == 0
+        members.append("nil")
+    return " | ".join(members)
 
 
 def group(kind):
-    if " | " in kind or "->" in kind:
-        if kind.startswith("(") and kind.endswith(")") and balanced(kind[1:-1]) and "->" not in kind:
-            return kind
+    if (" | " in kind or "->" in kind) and not (is_grouped(kind) and "->" not in kind[1:-1].replace(") -> ", "")):
         return f"({kind})"
     return kind
 
 
 def nullable(kind):
-    if kind in ("any", "nil") or kind.endswith("?") or kind.startswith("...") or kind.startswith("nil | "):
+    if kind in ("any", "nil") or kind.endswith("?") or kind.startswith("..."):
         return kind
-    if "->" in kind:
-        return f"nil | {group(kind)}"
     return f"{group(kind)}?"
 
 
-def parse_type(text, aliases, shapes=frozenset(), loose=False):
-    parser = TypeParser(text, aliases, shapes, loose)
-    kind, rest = parser.parse_prefix()
-    return kind, rest
+def tuple_of(kinds):
+    if not kinds:
+        return "void"
+    if len(kinds) == 1:
+        return kinds[0]
+    return "(" + ", ".join(kinds) + ")"
+
+
+def parse_type(text, aliases):
+    return TypeParser(text, aliases).parse_prefix()
 
 
 @dataclass
@@ -329,81 +315,93 @@ class Function:
 
 
 @dataclass
+class Operator:
+    symbol: str
+    parameters: list
+    result: str
+
+
+@dataclass
 class Interface:
     name: str
     parents: list
     doc: list
     fields: list = field(default_factory=list)
     functions: list = field(default_factory=list)
+    operators: list = field(default_factory=list)
+
+    @property
+    def is_class(self):
+        return bool(self.operators) or any(function.method for function in self.functions)
 
 
-def collect_aliases(files, shapes):
+def collect_aliases(files):
     raw = {}
     for path in files:
         for line in path.read_text().splitlines():
             match = re.match(r"---@alias (\w+) (.*)", line)
             if match:
                 raw[match.group(1)] = match.group(2)
-    resolved = {"strict": {}, "loose": {}}
+    resolved = {}
 
-    def resolve(name, mode, stack=()):
-        if name in resolved[mode]:
-            return resolved[mode][name]
+    def resolve(name, stack=()):
+        if name in resolved:
+            return resolved[name]
         if name in stack:
             raise ParseError(f"recursive alias {name}")
-        dependencies = {"strict": {}, "loose": {}}
-        for other in raw:
-            if other != name and re.search(rf"\b{other}\b", raw[name]):
-                dependencies["strict"][other] = resolve(other, "strict", stack + (name,))
-                dependencies["loose"][other] = resolve(other, "loose", stack + (name,))
-        kind, _ = parse_type(raw[name], dependencies, shapes, mode == "loose")
-        resolved[mode][name] = kind
-        return kind
+        dependencies = {
+            other: resolve(other, stack + (name,))
+            for other in raw
+            if other != name and re.search(rf"\b{other}\b", raw[name])
+        }
+        resolved[name] = parse_type(raw[name], dependencies)[0]
+        return resolved[name]
 
     for name in raw:
-        resolve(name, "strict")
-        resolve(name, "loose")
+        resolve(name)
     return resolved
 
 
-def collect_shapes(files):
-    classes, owners, with_functions = set(), {}, set()
-    for path in files:
-        current = None
-        for line in path.read_text().splitlines():
-            class_match = re.match(r"---@class (\w+)", line)
-            if class_match:
-                current = class_match.group(1)
-                classes.add(current)
-                continue
-            local_match = re.match(r"(?:local )?(\w+) = \{\}", line)
-            if local_match and current:
-                owners[local_match.group(1)] = current
-                continue
-            function_match = re.match(r"function (\w+)[.:]", line)
-            if function_match and function_match.group(1) in owners:
-                with_functions.add(owners[function_match.group(1)])
-    return frozenset(classes - with_functions - NANOS_TYPES)
+def parse_operator(text, aliases):
+    match = re.match(r"(\w+)(?:\((.*?)\))?\s*:\s*(.*)", text)
+    if not match or match.group(1) not in OPERATORS:
+        raise ParseError(f"unsupported operator '{text}'")
+    name, operand, result = match.groups()
+    parameters = []
+    if operand:
+        kind, _ = parse_type(operand, aliases)
+        parameters.append(("variables" if name == "call" else "other", kind))
+    returns = []
+    parser = TypeParser(result, aliases)
+    returns.append(parser.return_type())
+    while parser.accept(","):
+        returns.append(parser.return_type())
+    return Operator(OPERATORS[name], parameters, tuple_of(returns))
 
 
-def parse_file(path, aliases, shapes, interfaces, globals_):
+def parse_file(path, aliases, interfaces, globals_):
     doc, parameters, returns, parameter_docs = [], [], [], []
     current = None
     owners = {}
     for line in path.read_text().splitlines():
-        if line.startswith(("---@meta", "---@alias", "---@field [")):
+        if line.startswith(("---@meta", "---@alias", "---@diagnostic")):
             continue
         class_match = re.match(r"---@class (\w+)(?:\s*:\s*([\w, ]+))?", line)
         if class_match:
             name = class_match.group(1)
             parents = [parent.strip() for parent in (class_match.group(2) or "").split(",") if parent.strip()]
-            if name in NANOS_TYPES:
-                current = None
-                doc = []
-                continue
-            current = Interface(name, parents, doc)
-            interfaces[name] = current
+            current = None if name in NANOS_TYPES else Interface(name, parents, doc)
+            if current:
+                interfaces[name] = current
             doc = []
+            continue
+        index_match = re.match(r"---@field \[(\w+)\] (.*)", line)
+        if index_match:
+            if current is not None:
+                key, _ = parse_type(index_match.group(1), aliases)
+                value, _ = parse_type(index_match.group(2), aliases)
+                current.operators.append(Operator("[]", [("index", key)], value))
+                current.operators.append(Operator("[]=", [("index", key), ("value", value)], "void"))
             continue
         field_match = re.match(r"---@field (\w+)(\?)? (.*)", line)
         if field_match:
@@ -413,22 +411,25 @@ def parse_file(path, aliases, shapes, interfaces, globals_):
                     kind = nullable(kind)
                 current.fields.append(Member(field_match.group(1), kind, [description] if description else []))
             continue
+        operator_match = re.match(r"---@operator (.*)", line)
+        if operator_match:
+            if current is not None:
+                current.operators.append(parse_operator(operator_match.group(1), aliases))
+            continue
         parameter_match = re.match(r"---@param (\.\.\.|\w+)(\?)? (.*)", line)
         if parameter_match:
             name = parameter_match.group(1)
-            kind, description = parse_type(parameter_match.group(3), aliases, shapes, True)
-            optional = bool(parameter_match.group(2))
-            parameters.append((name, kind, optional))
+            kind, description = parse_type(parameter_match.group(3), aliases)
+            parameters.append((name, kind, bool(parameter_match.group(2))))
             parameter_docs.append((name, description))
             continue
         return_match = re.match(r"---@return (.*)", line)
         if return_match:
-            text = return_match.group(1)
-            if text.strip().startswith("..."):
-                returns.append(("...any", text.strip()[3:].strip()))
+            text = return_match.group(1).strip()
+            if text.startswith("..."):
+                returns.append(("...any", text[3:].strip()))
             else:
-                kind, description = parse_type(text, aliases)
-                returns.append((kind, description))
+                returns.append(parse_type(text, aliases))
             continue
         if line.startswith("---@"):
             raise ParseError(f"{path.name}: unsupported annotation '{line}'")
@@ -460,7 +461,7 @@ def parse_file(path, aliases, shapes, interfaces, globals_):
             doc, parameters, returns, parameter_docs = [], [], [], []
             continue
         if line.strip() == "":
-            if doc and current is None:
+            if current is None:
                 doc = []
             continue
         raise ParseError(f"{path.name}: unexpected line '{line}'")
@@ -470,7 +471,7 @@ def comment(lines, indent):
     return [f"{indent}--- {line}".rstrip() for line in lines if line]
 
 
-def render_function(function, indent):
+def render_function(function, indent, keyword):
     output = comment(function.doc, indent)
     for name, description in function.parameter_docs:
         if description:
@@ -484,16 +485,33 @@ def render_function(function, indent):
             parameters.append(f"...: {kind}")
         else:
             parameters.append(f"{name}: {nullable(kind) if optional else kind}")
-    kinds = [kind for kind, _ in function.returns]
-    if not kinds:
-        result = "void"
-    elif len(kinds) == 1:
-        result = kinds[0]
-    else:
-        result = "(" + ", ".join(kinds) + ")"
-    keyword = "method" if function.method else "function"
+    result = tuple_of([kind for kind, _ in function.returns])
     output.append(f"{indent}{keyword} {function.name}({', '.join(parameters)}): {result}")
     return output
+
+
+def render_operator(operator, indent):
+    parameters = ", ".join(f"{name}: {kind}" for name, kind in operator.parameters)
+    return f"{indent}operator {operator.symbol}({parameters}): {operator.result}"
+
+
+def render_header(interface, interfaces):
+    known = [parent for parent in interface.parents if parent in interfaces]
+    if not interface.is_class:
+        if any(interfaces[parent].is_class for parent in known):
+            raise ParseError(f"interface {interface.name} cannot extend a class")
+        header = f"declare interface {interface.name}"
+        return header + (" extends " + ", ".join(known) if known else "")
+    classes = [parent for parent in known if interfaces[parent].is_class]
+    contracts = [parent for parent in known if not interfaces[parent].is_class]
+    if len(classes) > 1:
+        raise ParseError(f"class {interface.name} extends more than one class")
+    header = f"declare class {interface.name}"
+    if classes:
+        header += f" extends {classes[0]}"
+    if contracts:
+        header += " implements " + ", ".join(contracts)
+    return header
 
 
 def render(interfaces, globals_):
@@ -505,16 +523,18 @@ def render(interfaces, globals_):
     for interface in interfaces.values():
         output.extend(comment(interface.doc, ""))
         output.append("@side(server)")
-        parents = [parent for parent in interface.parents if parent in interfaces]
-        header = f"declare interface {interface.name}"
-        if parents:
-            header += " extends " + ", ".join(parents)
-        output.append(header)
+        output.append(render_header(interface, interfaces))
         for member in interface.fields:
             output.extend(comment(member.doc, "    "))
             output.append(f"    {member.name}: {member.kind}")
+        for operator in interface.operators:
+            output.append(render_operator(operator, "    "))
         for function in interface.functions:
-            output.extend(render_function(function, "    "))
+            if interface.is_class:
+                keyword = "function" if function.method else "static function"
+            else:
+                keyword = "method" if function.method else "function"
+            output.extend(render_function(function, "    ", keyword))
         output.append("end")
         output.append("")
     for name, interface in globals_.items():
@@ -525,22 +545,17 @@ def render(interfaces, globals_):
 
 
 def main():
-    files = sorted(LIBRARY.glob("*.lua"))
-    files.sort(key=lambda path: path.name != "quark.lua")
-    shapes = collect_shapes(files)
-    aliases = collect_aliases(files, shapes)
+    files = sorted(LIBRARY.glob("*.lua"), key=lambda path: (path.name != "quark.lua", path.name))
+    aliases = collect_aliases(files)
     interfaces, globals_ = {}, {}
     for path in files:
-        parse_file(path, aliases, shapes, interfaces, globals_)
-    renamed = {}
-    for name, interface in globals_.items():
-        if name == interface:
-            renamed[name] = f"{name}__Static"
-    for old, new in renamed.items():
-        interface = interfaces.pop(old)
-        interface.name = new
-        interfaces = {new: interface, **interfaces}
-        globals_[old] = new
+        parse_file(path, aliases, interfaces, globals_)
+    for name, interface_name in list(globals_.items()):
+        if name == interface_name:
+            interface = interfaces.pop(interface_name)
+            interface.name = f"{name}__Static"
+            interfaces = {interface.name: interface, **interfaces}
+            globals_[name] = interface.name
     text = render(interfaces, globals_)
     if "--check" in sys.argv:
         if not OUTPUT.exists() or OUTPUT.read_text() != text:
@@ -550,7 +565,7 @@ def main():
         return
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(text)
-    print(f"wrote {len(interfaces)} interfaces to {OUTPUT.relative_to(ROOT)}")
+    print(f"wrote {len(interfaces)} declarations to {OUTPUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

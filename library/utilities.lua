@@ -279,6 +279,7 @@ function RingBufferModule.New(capacity) end
 
 ---Compact native booleans, indexed from the package index base.
 ---@class QuarkBitset
+---@operator len: integer
 local Bitset = {}
 
 ---@param index integer

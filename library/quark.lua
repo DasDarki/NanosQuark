@@ -185,6 +185,7 @@ function PromiseModule.Await(target, ...) end
 
 ---Mutable byte array, offsets start at the index base of the package (0 by default).
 ---@class QuarkBuffer
+---@operator len: integer
 local Buffer = {}
 
 ---@param kind QuarkNumberType
@@ -282,6 +283,7 @@ function Buffer:View(kind, offset, count) end
 ---Array of numbers of one type inside a buffer, `view[index]` reads and writes values.
 ---@class QuarkBufferView
 ---@field [integer] number
+---@operator len: integer
 local BufferView = {}
 
 ---@param index integer

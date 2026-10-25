@@ -17,6 +17,10 @@
 ---@field YearDay integer
 ---@field Zone string
 ---@field Offset integer Seconds from UTC
+---@diagnostic disable-next-line: unknown-operator
+---@operator lt(QuarkDateTime): boolean
+---@diagnostic disable-next-line: unknown-operator
+---@operator le(QuarkDateTime): boolean
 local DateTime = {}
 
 ---@return number
