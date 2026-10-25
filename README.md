@@ -1,5 +1,7 @@
 # Quark
 
+[![ci](https://github.com/DasDarki/NanosQuark/actions/workflows/ci.yml/badge.svg)](https://github.com/DasDarki/NanosQuark/actions/workflows/ci.yml) [![docs](https://img.shields.io/badge/docs-nanosquark.dasdarki.de-8b5cf6)](https://nanosquark.dasdarki.de)
+
 A batteries included utility library for the nanos world server, written in Rust. Quark adds what the built-in scripting API does not cover: cryptography, networking, data formats, compression, fast native computation and more.
 
 ```lua
@@ -14,7 +16,7 @@ end)
 
 ## Usage
 
-1. Copy the `quark` package (see [Packaging](#packaging)) into the server's `Packages` folder.
+1. Download `quark-<version>.zip` from the [releases](https://github.com/DasDarki/NanosQuark/releases) and extract it into the server's `Packages` folder.
 2. Add `"quark"` to `packages_requirements` of every package that uses it.
 3. Start the server with `--enable_unsafe_libs`, otherwise nanos world refuses to load c-module packages.
 
@@ -141,6 +143,10 @@ cargo xwin build --release --target x86_64-pc-windows-msvc
 ```
 
 The Windows build can be done from Linux with [cargo-xwin](https://github.com/rust-cross/cargo-xwin). Only the MSVC target is supported, because the SDK's `lua.lib` is built with MSVC.
+
+### Releases
+
+Pushing a tag like `v1.2.0` runs [.github/workflows/release.yml](.github/workflows/release.yml): it builds both binaries with the version of the tag (`Quark.Version` and the `version` in `Package.toml`), and publishes `quark-<version>.zip` with the ready package folder, `quark-library-<version>.zip` with the editor definitions and `SHA256SUMS` as a GitHub release. Tags with a suffix like `v1.2.0-beta.1` become prereleases.
 
 ### Packaging
 

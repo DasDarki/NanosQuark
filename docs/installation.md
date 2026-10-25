@@ -4,7 +4,7 @@ Quark is a c-module package: a native library that nanos world loads into the se
 
 ## Adding Quark to a server
 
-1. Copy the `quark` package folder into the `Packages` folder of the server.
+1. Download `quark-<version>.zip` from the [releases](https://github.com/DasDarki/NanosQuark/releases) and extract it into the `Packages` folder of the server, so that the server has a `Packages/quark` folder.
 2. Add `"quark"` to `packages_requirements` in the `Package.toml` of every package that uses it.
 3. Start the server with `--enable_unsafe_libs`, otherwise nanos world refuses to load c-module packages.
 
@@ -33,6 +33,8 @@ Packages/quark/
 ├── libquark.so
 └── quark.dll
 ```
+
+The release also contains `quark-library-<version>.zip` with the [editor definitions](editor-support.md) and a `SHA256SUMS` file to verify the downloads.
 
 ## Building from source
 
