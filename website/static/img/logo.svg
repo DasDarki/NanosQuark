@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="orbit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="0.5" stop-color="#818cf8"/>
+      <stop offset="1" stop-color="#e879f9"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0.42" cy="0.38" r="0.65">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.25" stop-color="#f0abfc"/>
+      <stop offset="0.6" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </radialGradient>
+    <radialGradient id="cyan" cx="0.35" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#ecfeff"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </radialGradient>
+    <radialGradient id="pink" cx="0.35" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#fdf4ff"/>
+      <stop offset="1" stop-color="#d946ef"/>
+    </radialGradient>
+  </defs>
+  <g fill="none" stroke="url(#orbit)" stroke-width="5" stroke-linecap="round">
+    <ellipse cx="64" cy="64" rx="56" ry="20"/>
+    <ellipse cx="64" cy="64" rx="56" ry="20" transform="rotate(60 64 64)"/>
+    <ellipse cx="64" cy="64" rx="56" ry="20" transform="rotate(-60 64 64)"/>
+  </g>
+  <circle cx="64" cy="64" r="17" fill="url(#core)"/>
+  <circle cx="120" cy="64" r="7" fill="url(#pink)"/>
+  <circle cx="36" cy="15.5" r="7" fill="url(#cyan)"/>
+  <circle cx="92" cy="112.5" r="7" fill="url(#cyan)"/>
+  <circle cx="36" cy="112.5" r="6" fill="url(#pink)"/>
+</svg>

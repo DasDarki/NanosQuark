@@ -106,4 +106,4 @@ Test.Run():Then(function(summary)
 end)
 ```
 
-The exit code is 0 when all tests passed, which makes it suitable for CI. The default package is [packages/quark-test](../packages/quark-test), the test suite of Quark itself. Everything else of the nanos world API is missing in the host, so tests of gameplay code still need the real server.
+The exit code is 0 when all tests passed, which makes it suitable for CI. The default package is `packages/quark-test`, the test suite of Quark itself. Everything else of the nanos world API is missing in the host, so tests of gameplay code still need the real server.

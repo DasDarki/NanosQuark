@@ -121,6 +121,18 @@ For [Nebra](https://github.com/nebra-lang/nebra) projects, the [nebra](nebra) fo
 nebra add @dasdarki/quark-types
 ```
 
+## Documentation site
+
+The [website](website) folder is a [Docusaurus](https://docusaurus.io) site built from the pages in `docs`:
+
+```sh
+cd website
+npm install
+npm start
+```
+
+`npm run build` writes the static site to `website/build`, `npm run deploy` publishes it to GitHub Pages.
+
 ## Building
 
 ```sh
@@ -169,6 +181,7 @@ packages/          the c-module package and the test suite
 nebra/             the Nebra type declarations package
 tools/test-host/   runs a package outside of nanos world
 tools/nebra-types/ generates the Nebra declarations in nebra/ from library/
+website/           the documentation site, built from docs/
 ```
 
 A module is a function `fn(&Lua) -> LuaResult<LuaTable>` registered in [quark/src/lib.rs](quark/src/lib.rs). It uses [mlua](https://docs.rs/mlua) directly. `quark-core` provides:

@@ -42,7 +42,7 @@ Values passed to and returned from workers are copied: `nil`, booleans, numbers,
 
 | Function | |
 | --- | --- |
-| `Worker.Run(code, data?, options?, callback?)` | Runs `code` in a fresh state, `data` is passed as `...`. Returns the values the code returns, or `nil, error`. With a callback it runs on a worker thread and returns a [task](../README.md#async-functions) |
+| `Worker.Run(code, data?, options?, callback?)` | Runs `code` in a fresh state, `data` is passed as `...`. Returns the values the code returns, or `nil, error`. With a callback it runs on a worker thread and returns a [task](basics.md#tasks) |
 
 ```lua
 Worker.Run([[
